@@ -494,7 +494,7 @@ let claudeShortcut = { ctrl: true, shift: true, key: 'C' };
 document.addEventListener('keydown',e=>{
     if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
     if(e.code==='Space'){ e.preventDefault(); toggleCmd(); }
-    if(e.key==='Escape') wins.filter(w=>w.state==='fullscreen').forEach(w=>toggleFS(w));
+    if(e.key==='Escape') { wins.filter(w=>w.state==='fullscreen').forEach(w=>toggleFS(w)); closeAbout(); }
 
     if (e.ctrlKey  === (claudeShortcut.ctrl  || false) &&
         e.shiftKey === (claudeShortcut.shift || false) &&
@@ -526,6 +526,41 @@ document.getElementById('shortcutsClose').addEventListener('click',()=>{
 document.getElementById('shortcutsModal').addEventListener('click',e=>{
     if(e.target===document.getElementById('shortcutsModal'))
         document.getElementById('shortcutsModal').classList.remove('show');
+});
+
+// ── ABOUT MODAL ───────────────────────────────────────────
+const ABOUT_JOKES = [
+    'Why do developers prefer dark mode?\nLight attracts bugs.',
+    'A QA engineer walks into a bar.\nOrders 0 beers. Orders 999999 beers. Orders -1 beers.',
+    'git commit -m "fix"\ngit commit -m "fix2"\ngit commit -m "PLEASE WORK"',
+    'It works on my machine.\n[ ships machine to client ]',
+    'sudo make me a sandwich.\n-- Every developer at 2am',
+    'There are 10 types of people:\nthose who get binary and those who do not.',
+    'Senior dev tip:\nif it is stupid but it works, it is still stupid and you got lucky.',
+    'The cloud is just someone else computer.\nAnd that computer is also someone else computer.'
+];
+
+const MANIFESTO =
+    'Built for developers who run too many projects at once.\n' +
+    'Because your terminal deserves to look like a cockpit.\n' +
+    'Free forever. No VC. No ads. Just vibes and code.\n' +
+    '-- Janua';
+
+function openAbout() {
+    document.getElementById('aboutJoke').textContent =
+        ABOUT_JOKES[Math.floor(Math.random() * ABOUT_JOKES.length)];
+    document.getElementById('aboutManifesto').textContent = MANIFESTO;
+    document.getElementById('aboutModal').classList.add('show');
+}
+
+function closeAbout() {
+    document.getElementById('aboutModal').classList.remove('show');
+}
+
+document.getElementById('aboutBtn').addEventListener('click', openAbout);
+document.getElementById('aboutClose').addEventListener('click', closeAbout);
+document.getElementById('aboutModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('aboutModal')) closeAbout();
 });
 
 async function confirmModal(){
