@@ -10,7 +10,7 @@
     "build:renderer": "vite build",
     "start": "npm run build:renderer && electron .",
     "test": "jest",
-    "postinstall": "electron-builder install-app-deps",
+    "postinstall": "electron-builder install-app-deps && find node_modules/node-pty/prebuilds -name '*-helper' -exec chmod +x {} \\;",
     "dist": "npm run build:renderer && electron-builder --mac dmg"
   },
   "devDependencies": {
