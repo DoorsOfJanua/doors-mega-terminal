@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const { readConfig, writeConfig, watchConfig } = require('./config');
 const PtyManager = require('./pty-manager');
@@ -17,7 +17,8 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      sandbox: false
     }
   });
 
@@ -72,6 +73,25 @@ ipcMain.handle('terminal:spawn', (_e, { id, projectPath }) => {
     if (mainWindow) mainWindow.webContents.send('terminal:data', { id: winId, data });
   });
   return { ok: true };
+});
+
+ipcMain.handle('dialog:pick-folder', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory'],
+    title: 'Select Project Folder'
+  });
+  if (result.canceled || !result.filePaths.length) return null;
+  return result.filePaths[0];
+});
+
+ipcMain.handle('dialog:pick-image', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openFile'],
+    title: 'Select Image',
+    filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'] }]
+  });
+  if (result.canceled || !result.filePaths.length) return null;
+  return result.filePaths[0];
 });
 
 ipcMain.on('terminal:input',  (_e, { id, data })       => ptys.write(id, data));
