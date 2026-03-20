@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Spaceship Command Center</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-color: #000;
+        }
+
+        body {
+            width: 100vw; height: 100vh;
+            background: var(--bg-color);
+            font-family: 'Orbitron', 'Arial Black', sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        body::after {
+            content: ''; position: fixed; inset: 0;
+            background: repeating-linear-gradient(to bottom, transparent, transparent 3px, rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px);
+            pointer-events: none; z-index: 9999;
+        }
+
+        canvas#stars { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+
+        /* ── FLOATING PANEL ──────────────────────────────────── */
+        .panel {
+            position: fixed; z-index: 100;
+            background: linear-gradient(160deg, rgba(0,12,26,0.88), rgba(0,18,38,0.84));
+            border: 1px solid rgba(0,255,255,0.22);
+            border-radius: 4px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 6px 32px rgba(0,0,0,0.7), 0 0 10px rgba(0,255,255,0.05);
+            display: flex; flex-direction: column;
+            transition: border-color 0.18s, box-shadow 0.18s;
+            min-width: 200px; min-height: 120px;
+        }
+
+        .panel.focused {
+            border-color: rgba(0,255,255,0.52);
+            box-shadow: 0 6px 32px rgba(0,0,0,0.7), 0 0 20px rgba(0,255,255,0.14);
+        }
+
+        .panel.minimized .panel-body,
+        .panel.minimized .panel-footer,
+        .panel.minimized .resize-handle { display: none; }
+
+        /* ── PANEL HEADER ────────────────────────────────────── */
+        .panel-header {
+            height: 34px; min-height: 34px;
+            display: flex; align-items: center;
+            padding: 0 7px 0 10px;
+            border-bottom: 1px solid rgba(0,255,255,0.1);
+            cursor: move; gap: 6px; flex-shrink: 0;
+        }
+
+        .ph-dot {
+            width: 5px; height: 5px; border-radius: 50%;
+            background: #0ff; animation: blink 2.5s infinite; flex-shrink: 0;
+        }
+
+        .ph-title {
+            flex: 1; font-size: 10px; font-weight: 700;
+            letter-spacing: 1px; color: #0ff;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        /* MODEL BADGE — clickable */
+        .ph-model {
+            font-size: 8px; letter-spacing: 1px; flex-shrink: 0;
+            padding: 2px 6px; border-radius: 2px;
+            border: 1px solid transparent;
+            cursor: pointer; transition: all 0.12s;
+            position: relative;
+        }
+
+        .ph-model:hover { border-color: currentColor; background: rgba(255,255,255,0.05); }
+        .ph-model.haiku  { color: #0b5; }
+        .ph-model.sonnet { color: #09a; }
+        .ph-model.opus   { color: #9a0; }
+
+        /* Model picker popup */
+        .model-picker {
+            display: none;
+            position: absolute; top: 100%; right: 0; margin-top: 3px;
+            background: rgba(0,10,22,0.98);
+            border: 1px solid rgba(0,255,255,0.3); border-radius: 3px;
+            z-index: 800; overflow: hidden;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.8);
+        }
+
+        .model-picker.show { display: block; }
+
+        .mp-opt {
+            display: block; width: 100%;
+            padding: 6px 14px; text-align: left;
+            background: transparent; border: none;
+            font-family: 'Orbitron', sans-serif; font-size: 8px;
+            letter-spacing: 1px; cursor: pointer;
+            transition: background 0.1s;
+            border-bottom: 1px solid rgba(0,255,255,0.08);
+            white-space: nowrap;
+        }
+
+        .mp-opt:last-child { border-bottom: none; }
+        .mp-opt.haiku  { color: #0b5; } .mp-opt.haiku:hover  { background: rgba(0,180,80,0.1); }
+        .mp-opt.sonnet { color: #09a; } .mp-opt.sonnet:hover { background: rgba(0,150,170,0.1); }
+        .mp-opt.opus   { color: #9a0; } .mp-opt.opus:hover   { background: rgba(150,170,0,0.1); }
+
+        .ph-btns { display: flex; gap: 3px; flex-shrink: 0; }
+
+        .pb {
+            width: 18px; height: 18px; border-radius: 2px;
+            border: 1px solid rgba(0,255,255,0.15); background: transparent;
+            color: rgba(0,255,255,0.4); font-size: 8px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.12s; font-family: monospace; padding: 0; line-height: 1;
+        }
+
+        .pb:hover       { background: rgba(0,255,255,0.1); color: #0ff; border-color: rgba(0,255,255,0.5); }
+        .pb.close:hover { background: rgba(255,0,0,0.15); color: #f55; border-color: rgba(255,50,50,0.5); }
+
+        /* ── PANEL BODY ──────────────────────────────────────── */
+        .panel-body {
+            flex: 1; overflow: hidden;
+            display: flex; flex-direction: column; min-height: 0;
+        }
+
+        .panel-content {
+            flex: 1; overflow-y: auto; padding: 7px 9px;
+            font-size: 10px; line-height: 1.55;
+            color: #0c0; font-family: 'Courier New', monospace;
+        }
+
+        .panel-content::-webkit-scrollbar { width: 3px; }
+        .panel-content::-webkit-scrollbar-thumb { background: rgba(0,255,255,0.15); border-radius: 2px; }
+
+        .log-line       { color: #0b0; word-break: break-word; }
+        .log-line.error { color: #f66; }
+        .log-line.warn  { color: #fa3; }
+        .log-line.info  { color: #29f; }
+        .log-line.muted { color: rgba(0,255,255,0.18); font-style: italic; }
+
+        /* ── PANEL FOOTER ────────────────────────────────────── */
+        .panel-footer {
+            height: 19px; min-height: 19px;
+            padding: 0 9px; display: flex; align-items: center;
+            border-top: 1px solid rgba(0,255,255,0.07);
+            font-size: 8px; color: rgba(0,255,255,0.18);
+            flex-shrink: 0; gap: 5px;
+        }
+
+        .pf-path { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pf-dot  { flex-shrink: 0; font-size: 7px; }
+        .pf-dot.ok     { color: #0a0; }
+        .pf-dot.no     { color: rgba(255,130,0,0.45); }
+        .pf-dot.active { color: #0f0; animation: blink 1s infinite; }
+
+        /* ── RESIZE HANDLES ──────────────────────────────────── */
+        .resize-handle {
+            position: absolute; z-index: 10;
+        }
+
+        /* edge handles */
+        .rh-n  { top: 0; left: 6px; right: 6px; height: 4px; cursor: n-resize; }
+        .rh-s  { bottom: 0; left: 6px; right: 6px; height: 4px; cursor: s-resize; }
+        .rh-e  { right: 0; top: 6px; bottom: 6px; width: 4px; cursor: e-resize; }
+        .rh-w  { left: 0; top: 6px; bottom: 6px; width: 4px; cursor: w-resize; }
+
+        /* corner handles */
+        .rh-nw { top: 0; left: 0; width: 10px; height: 10px; cursor: nw-resize; }
+        .rh-ne { top: 0; right: 0; width: 10px; height: 10px; cursor: ne-resize; }
+        .rh-sw { bottom: 0; left: 0; width: 10px; height: 10px; cursor: sw-resize; }
+        .rh-se { bottom: 0; right: 0; width: 14px; height: 14px; cursor: se-resize; }
+
+        /* corner visual indicator (se only) */
+        .rh-se::after {
+            content: '';
+            position: absolute; right: 3px; bottom: 3px;
+            width: 6px; height: 6px;
+            border-right: 1px solid rgba(0,255,255,0.25);
+            border-bottom: 1px solid rgba(0,255,255,0.25);
+        }
+
+        /* ── COMMAND CENTER — fixed bottom ────────────────────── */
+        #cmdBar {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            z-index: 400; display: flex; flex-direction: column;
+            transition: transform 0.26s ease;
+        }
+
+        #cmdBar.collapsed { transform: translateY(calc(100% - 28px)); }
+
+        #cmdHandle {
+            height: 28px;
+            background: rgba(0,4,10,0.75);
+            border-top: 1px solid rgba(0,255,255,0.18);
+            display: flex; align-items: center;
+            padding: 0 16px; gap: 12px; cursor: pointer; flex-shrink: 0;
+        }
+
+        #cmdHandle:hover { background: rgba(0,8,20,0.97); }
+
+        .ch-title { color: rgba(0,255,255,0.45); font-size: 8px; letter-spacing: 4px; }
+        .ch-hint  { color: rgba(0,255,255,0.18); font-size: 7px; letter-spacing: 2px; }
+        .ch-arrow { color: rgba(0,255,255,0.3); font-size: 9px; margin-left: auto; transition: transform 0.26s; }
+        #cmdBar.collapsed .ch-arrow { transform: rotate(180deg); }
+
+        /*
+         * #cmdContent is the full-width strip.
+         * The nanobanana image sits here as background.
+         * The solid center ledger "cuts out" the middle.
+         * Left and right zones are transparent — image shows through.
+         */
+        #cmdContent {
+            display: flex; height: 200px;
+            background: transparent;
+            border-top: 1px solid rgba(0,255,255,0.1);
+        }
+
+        /* NANOBANANA ZONES */
+        .nano-side {
+            width: 520px; flex-shrink: 0;
+            position: relative; overflow: hidden;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        .nano-label { display: none; }
+
+        /* CENTER LEDGER — solid background so cockpit image doesn't bleed through */
+        #cmdCenter { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: rgba(2,6,14,0.97); }
+
+        #cmdCenterTop {
+            height: 30px; min-height: 30px;
+            display: flex; align-items: center;
+            padding: 0 10px; gap: 8px;
+            border-bottom: 1px solid rgba(0,255,255,0.07); flex-shrink: 0;
+        }
+
+        #cmdCenterTitle { color: rgba(0,255,255,0.3); font-size: 8px; letter-spacing: 3px; }
+
+        .cmd-tools { display: flex; gap: 5px; align-items: center; margin-left: auto; }
+
+        .tool-btn {
+            padding: 2px 7px; background: transparent;
+            border: 1px solid rgba(0,255,255,0.15); color: rgba(0,255,255,0.42);
+            font-family: 'Orbitron', sans-serif; font-size: 7px; letter-spacing: 1px;
+            cursor: pointer; border-radius: 2px; transition: all 0.12s;
+        }
+
+        .tool-btn:hover { background: rgba(0,255,255,0.07); color: #0ff; border-color: rgba(0,255,255,0.4); }
+
+        .cmd-body { flex: 1; padding: 7px 10px 10px; overflow-y: auto; }
+        .cmd-body::-webkit-scrollbar { width: 3px; }
+        .cmd-body::-webkit-scrollbar-thumb { background: rgba(0,255,255,0.1); border-radius: 2px; }
+
+        /* LEDGER ROWS */
+        .ledger-row {
+            display: flex; align-items: center; gap: 6px;
+            padding: 4px 7px; margin-bottom: 3px;
+            background: rgba(0,255,255,0.02);
+            border: 1px solid rgba(0,255,255,0.08);
+            border-radius: 2px; cursor: pointer; transition: all 0.14s;
+        }
+
+        .ledger-row:hover  { background: rgba(0,255,255,0.06); border-color: rgba(0,255,255,0.28); }
+        .ledger-row.active { border-color: rgba(0,255,255,0.48); background: rgba(0,255,255,0.07); }
+
+        .lr-status {
+            font-size: 7px; letter-spacing: 1px; flex-shrink: 0;
+            padding: 1px 5px; border-radius: 2px; min-width: 46px; text-align: center;
+        }
+
+        .lr-status.online  { color: #0a0; border: 1px solid rgba(0,150,0,0.3); }
+        .lr-status.offline { color: rgba(255,130,0,0.6); border: 1px solid rgba(255,130,0,0.2); }
+
+        .lr-name  { color: rgba(0,255,255,0.82); font-size: 9px; font-weight: 700; width: 130px; flex-shrink: 0; }
+        .lr-msg   { color: #060; font-size: 8px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* model picker in ledger */
+        .lr-model-wrap { position: relative; flex-shrink: 0; }
+
+        .lr-model-btn {
+            padding: 2px 7px; border-radius: 2px;
+            background: transparent; cursor: pointer;
+            font-family: 'Orbitron', sans-serif; font-size: 7px; letter-spacing: 1px;
+            border: 1px solid transparent; transition: all 0.12s;
+        }
+
+        .lr-model-btn:hover { border-color: currentColor; background: rgba(255,255,255,0.04); }
+        .lr-model-btn.haiku  { color: #0b5; }
+        .lr-model-btn.sonnet { color: #09a; }
+        .lr-model-btn.opus   { color: #9a0; }
+
+        .lr-actions { display: flex; gap: 3px; flex-shrink: 0; }
+
+        .la-btn {
+            padding: 2px 5px; background: transparent;
+            border: 1px solid rgba(0,255,255,0.13); color: rgba(0,255,255,0.38);
+            font-family: 'Orbitron', sans-serif; font-size: 7px; letter-spacing: 1px;
+            cursor: pointer; border-radius: 2px; transition: all 0.12s;
+        }
+
+        .la-btn:hover       { background: rgba(0,255,255,0.08); color: #0ff; border-color: rgba(0,255,255,0.45); }
+        .la-btn.close:hover { background: rgba(255,0,0,0.1); color: #f55; border-color: rgba(255,50,50,0.4); }
+
+        /* ── MODAL ───────────────────────────────────────────── */
+        #modal {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.8); z-index: 600;
+            align-items: center; justify-content: center;
+        }
+
+        #modal.show { display: flex; }
+
+        .mbox {
+            background: rgba(0,10,22,0.99);
+            border: 1px solid rgba(0,255,255,0.3); border-radius: 3px;
+            padding: 22px 24px; width: 360px;
+            box-shadow: 0 0 60px rgba(0,255,255,0.1);
+        }
+
+        .m-title { color: #0ff; font-size: 11px; letter-spacing: 4px; margin-bottom: 16px; font-weight: 700; }
+        .m-field { margin-bottom: 12px; }
+        .m-label { color: rgba(0,255,255,0.36); font-size: 8px; letter-spacing: 2px; margin-bottom: 4px; }
+
+        .m-input, .m-select {
+            width: 100%; padding: 7px 9px;
+            background: rgba(0,255,255,0.04);
+            border: 1px solid rgba(0,255,255,0.2); border-radius: 2px;
+            color: #0ff; font-family: 'Orbitron', sans-serif;
+            font-size: 10px; outline: none; transition: border-color 0.14s;
+        }
+
+        .m-select { background: rgba(0,10,22,0.99); cursor: pointer; }
+        .m-input:focus, .m-select:focus { border-color: rgba(0,255,255,0.55); }
+
+        .m-btns { display: flex; gap: 8px; margin-top: 16px; }
+        .m-btn { flex: 1; padding: 8px; border-radius: 2px; font-family: 'Orbitron', sans-serif; font-size: 9px; cursor: pointer; letter-spacing: 1px; transition: all 0.14s; }
+        .m-btn.ok     { background: rgba(0,255,255,0.07); border: 1px solid rgba(0,255,255,0.35); color: #0ff; }
+        .m-btn.ok:hover { background: rgba(0,255,255,0.13); }
+        .m-btn.cancel { background: transparent; border: 1px solid rgba(255,0,0,0.2); color: rgba(255,70,70,0.6); }
+        .m-btn.cancel:hover { background: rgba(255,0,0,0.07); }
+
+        /* SHORTCUTS MODAL */
+        #shortcutsModal {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.75); z-index: 600;
+            align-items: center; justify-content: center;
+        }
+        #shortcutsModal.show { display: flex; }
+
+        .sbox {
+            background: rgba(0,10,22,0.99);
+            border: 1px solid rgba(0,255,255,0.25); border-radius: 3px;
+            padding: 22px 26px; width: 780px; max-height: 80vh; overflow-y: auto;
+            box-shadow: 0 0 60px rgba(0,255,255,0.08);
+        }
+
+        .s-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+        .s-header .m-title { margin-bottom: 0; }
+        .s-close { background: transparent; border: 1px solid rgba(255,70,70,0.3); color: rgba(255,70,70,0.6); cursor: pointer; font-size: 10px; padding: 3px 8px; border-radius: 2px; font-family: 'Orbitron', sans-serif; }
+        .s-close:hover { background: rgba(255,0,0,0.1); }
+
+        .s-cols { display: flex; gap: 32px; }
+        .s-col  { flex: 1; }
+
+        .s-section {
+            color: rgba(0,255,255,0.35); font-size: 7px; letter-spacing: 3px;
+            margin: 14px 0 8px; border-bottom: 1px solid rgba(0,255,255,0.08); padding-bottom: 5px;
+        }
+        .s-col .s-section:first-child { margin-top: 0; }
+
+        .s-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 7px; }
+        .s-key {
+            flex-shrink: 0; min-width: 110px;
+            background: rgba(0,255,255,0.06); border: 1px solid rgba(0,255,255,0.18);
+            border-radius: 2px; padding: 2px 7px;
+            color: #0ff; font-size: 8px; letter-spacing: 0.5px; text-align: center;
+        }
+        .s-desc { color: rgba(180,220,255,0.55); font-size: 9px; letter-spacing: 0.3px; }
+
+        #hint {
+            position: fixed; bottom: 9px; right: 11px;
+            color: rgba(0,255,255,0.14); font-size: 7px; letter-spacing: 1px;
+            z-index: 5; text-align: right; pointer-events: none; line-height: 2;
+        }
+
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    </style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+
+<div id="cmdBar">
+    <div id="cmdHandle">
+        <span class="ch-title">⚡ COMMAND CENTER</span>
+        <span class="ch-hint">SPACE TO TOGGLE</span>
+        <span class="ch-arrow">▲</span>
+    </div>
+    <div id="cmdContent">
+        <div class="nano-side"><div class="nano-label">NANOBANANA<br>ZONE</div></div>
+        <div id="cmdCenter">
+            <div id="cmdCenterTop">
+                <div id="cmdCenterTitle">PROJECTS</div>
+                <div class="cmd-tools">
+                    <button class="tool-btn" id="addBtn">+ ADD PROJECT</button>
+                    <button class="tool-btn" id="tileBtn">TILE ALL</button>
+                    <button class="tool-btn" id="shortcutsBtn">⌨ SHORTCUTS</button>
+                </div>
+            </div>
+            <div class="cmd-body" id="ledger"></div>
+        </div>
+        <div class="nano-side"><div class="nano-label">NANOBANANA<br>ZONE</div></div>
+    </div>
+</div>
+
+<div id="modal">
+    <div class="mbox">
+        <div class="m-title">ADD PROJECT</div>
+        <div class="m-field"><div class="m-label">PROJECT NAME</div><input class="m-input" id="mName" placeholder="My Project" autocomplete="off"></div>
+        <div class="m-field"><div class="m-label">MODEL</div>
+            <select class="m-select" id="mModel">
+                <option value="Haiku">Haiku — fastest, cheapest</option>
+                <option value="Sonnet" selected>Sonnet — balanced</option>
+                <option value="Opus">Opus — deep thinking</option>
+            </select>
+        </div>
+        <div class="m-field"><div class="m-label">LOG FILE (in ~/logs/)</div><input class="m-input" id="mLog" placeholder="project-name.log" autocomplete="off"></div>
+        <div class="m-field"><div class="m-label">PROJECT PATH (optional)</div><input class="m-input" id="mPath" placeholder="/Users/janua/projects/my-project" autocomplete="off"></div>
+        <div class="m-btns">
+            <button class="m-btn cancel" id="mCancel">CANCEL</button>
+            <button class="m-btn ok" id="mOk">ADD</button>
+        </div>
+    </div>
+</div>
+
+<div id="shortcutsModal">
+    <div class="sbox">
+        <div class="s-header">
+            <div class="m-title">SHORTCUTS</div>
+            <button class="s-close" id="shortcutsClose">✕</button>
+        </div>
+        <div class="s-cols">
+            <div class="s-col">
+                <div class="s-section">COMMAND CENTER</div>
+                <div class="s-row"><span class="s-key">SPACE</span><span class="s-desc">Toggle command center</span></div>
+                <div class="s-row"><span class="s-key">DBL-CLICK</span><span class="s-desc">Fullscreen window</span></div>
+                <div class="s-row"><span class="s-key">ESC</span><span class="s-desc">Exit fullscreen</span></div>
+                <div class="s-row"><span class="s-key">DRAG corner</span><span class="s-desc">Resize window</span></div>
+                <div class="s-row"><span class="s-key">DRAG header</span><span class="s-desc">Move window</span></div>
+                <div class="s-row"><span class="s-key">Click model</span><span class="s-desc">Switch Haiku / Sonnet / Opus</span></div>
+
+                <div class="s-section">TERMINAL</div>
+                <div class="s-row"><span class="s-key">Ctrl + C</span><span class="s-desc">Kill running process</span></div>
+                <div class="s-row"><span class="s-key">Ctrl + L</span><span class="s-desc">Clear screen</span></div>
+                <div class="s-row"><span class="s-key">Ctrl + R</span><span class="s-desc">Search command history</span></div>
+                <div class="s-row"><span class="s-key">Ctrl + A</span><span class="s-desc">Jump to start of line</span></div>
+                <div class="s-row"><span class="s-key">Ctrl + E</span><span class="s-desc">Jump to end of line</span></div>
+                <div class="s-row"><span class="s-key">Ctrl + U</span><span class="s-desc">Clear current line</span></div>
+                <div class="s-row"><span class="s-key">Ctrl + W</span><span class="s-desc">Delete last word</span></div>
+                <div class="s-row"><span class="s-key">Ctrl + Z</span><span class="s-desc">Suspend process (fg to resume)</span></div>
+                <div class="s-row"><span class="s-key">!!</span><span class="s-desc">Repeat last command</span></div>
+                <div class="s-row"><span class="s-key">cd -</span><span class="s-desc">Jump to previous directory</span></div>
+            </div>
+            <div class="s-col">
+                <div class="s-section">CLAUDE CODE</div>
+                <div class="s-row"><span class="s-key">/clear</span><span class="s-desc">Clear conversation context</span></div>
+                <div class="s-row"><span class="s-key">/compact</span><span class="s-desc">Compress context, keep summary</span></div>
+                <div class="s-row"><span class="s-key">/memory</span><span class="s-desc">View / edit memory files</span></div>
+                <div class="s-row"><span class="s-key">/model</span><span class="s-desc">Switch model mid-session</span></div>
+                <div class="s-row"><span class="s-key">/cost</span><span class="s-desc">Show token usage + cost</span></div>
+                <div class="s-row"><span class="s-key">/status</span><span class="s-desc">Show current session status</span></div>
+                <div class="s-row"><span class="s-key">Esc Esc</span><span class="s-desc">Interrupt Claude mid-response</span></div>
+                <div class="s-row"><span class="s-key">↑ arrow</span><span class="s-desc">Recall last prompt</span></div>
+                <div class="s-row"><span class="s-key">Shift + Enter</span><span class="s-desc">New line without submitting</span></div>
+
+                <div class="s-section">GIT WORKFLOW</div>
+                <div class="s-row"><span class="s-key">git diff --stat</span><span class="s-desc">Quick change summary</span></div>
+                <div class="s-row"><span class="s-key">git stash</span><span class="s-desc">Stash dirty state fast</span></div>
+                <div class="s-row"><span class="s-key">git log --oneline</span><span class="s-desc">Compact commit history</span></div>
+                <div class="s-row"><span class="s-key">git checkout -</span><span class="s-desc">Switch to last branch</span></div>
+                <div class="s-row"><span class="s-key">git commit --amend</span><span class="s-desc">Fix last commit message</span></div>
+                <div class="s-row"><span class="s-key">git reset HEAD~1</span><span class="s-desc">Undo last commit, keep changes</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="hint">
+    SPACE = toggle command center<br>
+    DBL-CLICK header = fullscreen · ESC = back<br>
+    DRAG corners to resize · CLICK model to switch
+</div>
+
+<script type="module" src="./main.js"></script>
+</body>
+</html>
