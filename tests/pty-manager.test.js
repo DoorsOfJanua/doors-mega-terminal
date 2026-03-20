@@ -2,9 +2,12 @@ const PtyManager = require('../pty-manager');
 
 test('spawn creates a pty entry', done => {
   const mgr = new PtyManager();
-  mgr.spawn('t1', '/tmp', () => {});
-  expect(mgr.has('t1')).toBe(true);
-  mgr.kill('t1');
+  try {
+    mgr.spawn('t1', '/tmp', () => {});
+    expect(mgr.has('t1')).toBe(true);
+  } finally {
+    mgr.kill('t1');
+  }
   done();
 });
 
@@ -18,9 +21,12 @@ test('kill removes the pty entry', done => {
 
 test('write does not throw for active pty', done => {
   const mgr = new PtyManager();
-  mgr.spawn('t3', '/tmp', () => {});
-  expect(() => mgr.write('t3', 'ls\n')).not.toThrow();
-  mgr.kill('t3');
+  try {
+    mgr.spawn('t3', '/tmp', () => {});
+    expect(() => mgr.write('t3', 'ls\n')).not.toThrow();
+  } finally {
+    mgr.kill('t3');
+  }
   done();
 });
 
@@ -31,9 +37,12 @@ test('write is a no-op for unknown id', () => {
 
 test('resize does not throw for active pty', done => {
   const mgr = new PtyManager();
-  mgr.spawn('t4', '/tmp', () => {});
-  expect(() => mgr.resize('t4', 100, 30)).not.toThrow();
-  mgr.kill('t4');
+  try {
+    mgr.spawn('t4', '/tmp', () => {});
+    expect(() => mgr.resize('t4', 100, 30)).not.toThrow();
+  } finally {
+    mgr.kill('t4');
+  }
   done();
 });
 
