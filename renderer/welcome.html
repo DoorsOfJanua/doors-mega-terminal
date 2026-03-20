@@ -96,7 +96,7 @@ async function enter() {
   const cfg = await window.scc.readConfig();
   cfg.welcomeSeen = true;
   await window.scc.writeConfig(cfg);
-  location.href = './dist/index.html';
+  window.scc.navigate('renderer/dist/index.html');
 }
 
 document.getElementById('enterBtn').addEventListener('click', enter);
