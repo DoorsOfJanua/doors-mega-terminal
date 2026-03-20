@@ -91,12 +91,9 @@ const timer = setInterval(() => {
   cd.textContent = 'auto-skip in ' + secs + 's';
 }, 1000);
 
-async function enter() {
+function enter() {
   clearInterval(timer);
-  const cfg = await window.scc.readConfig();
-  cfg.welcomeSeen = true;
-  await window.scc.writeConfig(cfg);
-  window.scc.navigate('renderer/dist/index.html');
+  window.scc.welcomeDone();
 }
 
 document.getElementById('enterBtn').addEventListener('click', enter);

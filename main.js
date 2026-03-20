@@ -57,6 +57,13 @@ ipcMain.on('navigate', (_e, page) => {
   if (mainWindow) mainWindow.loadFile(page);
 });
 
+ipcMain.on('welcome:done', () => {
+  const cfg = readConfig();
+  cfg.welcomeSeen = true;
+  writeConfig(cfg);
+  if (mainWindow) mainWindow.loadFile('renderer/dist/index.html');
+});
+
 ipcMain.handle('config:read', () => readConfig());
 ipcMain.handle('config:write', (_e, cfg) => { writeConfig(cfg); return { ok: true }; });
 
