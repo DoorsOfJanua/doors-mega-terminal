@@ -82,17 +82,8 @@ const SIZES = { S:{w:260,h:170}, M:{w:420,h:280}, L:{w:640,h:440} };
 
 const MODELS = ['Haiku','Sonnet','Opus'];
 
-// Default projects — IPC config can override
-const DEFAULT_PROJECTS = [
-    { title:'Life OS',        model:'Opus',   logFile:'life-os.log',         path:'/Users/janua/Documents/LifeOS' },
-    { title:'MicroBlooming',  model:'Sonnet', logFile:'microblooming.log',   path:'/Users/janua/projects/Microblooming' },
-    { title:'REPLAI',         model:'Haiku',  logFile:'replai.log',          path:'/Users/janua/Documents/REPLAI' },
-    { title:'InvAIce',        model:'Haiku',  logFile:'invaice.log',         path:'/Users/janua/Documents/InvAIce' },
-    { title:'XTC-STUDIO',     model:'Sonnet', logFile:'xtc-studio.log',      path:'/Users/janua/Documents/XTC-STUDIO' },
-    { title:'DoorsOfHarmony', model:'Sonnet', logFile:'doors-of-harmony.log',path:'/Users/janua/projects/DoorsOfHarmony' },
-    { title:'LifeOS-Dev',     model:'Sonnet', logFile:'lifeos-dev.log',       path:'/Users/janua/Documents/lifeos-backend' },
-    { title:'EmpathyEngine',  model:'Sonnet', logFile:'empathy-engine.log',  path:'/Users/janua/Documents/empathy-engine' },
-];
+// Default projects — empty, user adds their own via + ADD or config
+const DEFAULT_PROJECTS = [];
 
 // ── STATE ────────────────────────────────────────────────
 let wins        = [];
@@ -538,6 +529,15 @@ document.getElementById('mCancel').addEventListener('click',closeModal);
 document.getElementById('modal').addEventListener('click',e=>{ if(e.target===document.getElementById('modal')) closeModal(); });
 document.getElementById('mOk').addEventListener('click',confirmModal);
 document.getElementById('mName').addEventListener('keydown',e=>{ if(e.key==='Enter') confirmModal(); if(e.key==='Escape') closeModal(); });
+document.getElementById('mBrowse').addEventListener('click', async () => {
+    const folder = await window.scc.pickFolder();
+    if (folder) {
+        document.getElementById('mPath').value = folder;
+        if (!document.getElementById('mName').value.trim()) {
+            document.getElementById('mName').value = folder.split('/').pop();
+        }
+    }
+});
 
 // ── SHORTCUTS MODAL ───────────────────────────────────────
 document.getElementById('shortcutsBtn').addEventListener('click',()=>{
@@ -615,56 +615,150 @@ function closeModal(){
     }
 })();
 
-// ── LEFT PANEL: HYPERDRIVE + BRAIN MODE ──────────────────
-(() => {
-    const zone = document.querySelector('.nano-side:first-child');
+// ── NANO ZONE ANIMATIONS (click to cycle, right-click to add custom) ──
+const ANIM_MODES = ['warp', 'cockpit', 'nebula', 'matrix', 'radar'];
+const ANIM_LABELS = { warp:'WARP', cockpit:'COCKPIT', nebula:'NEBULA', matrix:'MATRIX', radar:'RADAR' };
+const customImages = {}; // { 'custom-0': 'file:///path', 'custom-1': 'file:///path' }
+let customCount = 0;
+
+function createNanoAnimation(zoneId, modeLabel, startMode) {
+    const zone = document.getElementById(zoneId);
+    const label = document.getElementById(modeLabel);
     const wc = document.createElement('canvas');
-    wc.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;';
+    wc.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;';
     wc.width = 520; wc.height = 200;
     zone.appendChild(wc);
     const ctx = wc.getContext('2d');
     const W = 520, H = 200, CX = W/2, CY = H/2;
 
+    let mode = startMode;
+    let t = 0;
+    label.textContent = ANIM_LABELS[mode];
+
+    zone.addEventListener('click', (e) => {
+        if (e.button !== 0) return;
+        const idx = (ANIM_MODES.indexOf(mode) + 1) % ANIM_MODES.length;
+        mode = ANIM_MODES[idx];
+        label.textContent = ANIM_LABELS[mode] || mode.toUpperCase();
+        ctx.clearRect(0,0,W,H);
+        initMode();
+    });
+
+    // Right-click to add custom image frame
+    zone.addEventListener('contextmenu', async (e) => {
+        e.preventDefault();
+        if (customCount >= 2) return; // max 2 custom frames
+        const imgPath = await window.scc.pickImage();
+        if (!imgPath) return;
+        const key = 'custom-' + customCount;
+        customCount++;
+        customImages[key] = imgPath;
+        ANIM_MODES.push(key);
+        ANIM_LABELS[key] = 'CUSTOM ' + customCount;
+        // switch to it immediately
+        mode = key;
+        label.textContent = ANIM_LABELS[key];
+        ctx.clearRect(0,0,W,H);
+        initMode();
+    });
+
+    // ── WARP state ──
     const MESSAGES = [
         'ADHD MODE', 'ACTIVATED',
         'HYPERFOCUS', 'ENGAGED',
         'CHAOS ENGINE', 'RUNNING',
         'SUPERSONIC', 'BRAIN ONLINE',
-        'TURBO CORTEX', 'UNLEASHED'
+        'TURBO CORTEX', 'UNLEASHED',
+        'DMT HYPERSPACE', 'INITIATED'
     ];
     let msgIdx = 0, msgTimer = 0, msgPulse = 0;
+    let warpStars = [];
+    function resetWarpStar(s){ s.x=(Math.random()-0.5)*W; s.y=(Math.random()-0.5)*H; s.z=W; s.pz=s.z; }
+    function initWarp() {
+        warpStars = Array.from({length:120}, () => {
+            const s = { x:(Math.random()-0.5)*W, y:(Math.random()-0.5)*H, z:Math.random()*W, pz:0 };
+            s.pz = s.z; return s;
+        });
+        msgIdx = 0; msgTimer = 0; msgPulse = 0;
+    }
 
-    const warpStars = Array.from({length:120}, () => ({
-        x:(Math.random()-0.5)*W, y:(Math.random()-0.5)*H,
-        z:Math.random()*W, pz:0
+    // ── COCKPIT state ──
+    const leds = Array.from({length:16}, (_, i) => ({
+        x: 18 + i*30, y: 16,
+        color: ['#0f0','#0f0','#ff0','#f80','#f00','#0f0','#0ff','#0f0',
+                '#f00','#ff0','#0f0','#0f0','#f80','#0ff','#f00','#0f0'][i],
+        phase: Math.random()*Math.PI*2, rate: 0.04 + Math.random()*0.08
     }));
-    function resetStar(s){ s.x=(Math.random()-0.5)*W; s.y=(Math.random()-0.5)*H; s.z=W; s.pz=s.z; }
+    const counters = [
+        { x:20, y:40, label:'PWR', val:0, speed:7, max:9999 },
+        { x:195, y:40, label:'FREQ', val:0, speed:13, max:9999 },
+        { x:370, y:40, label:'VEC', val:0, speed:3, max:9999 }
+    ];
+    const toggles = [
+        { x:30, y:115, label:'THRUST', state:1, flip:0, rate:320 },
+        { x:110, y:115, label:'SHIELD', state:1, flip:0, rate:480 },
+        { x:190, y:115, label:'HYPDRV', state:1, flip:0, rate:190 },
+        { x:270, y:115, label:'NAVCOMP', state:0, flip:0, rate:560 },
+        { x:350, y:115, label:'COMMS', state:1, flip:0, rate:410 },
+        { x:430, y:115, label:'LIFE-SP', state:1, flip:0, rate:700 }
+    ];
+    const gauge = { x:460, y:110, r:32, val:0.6, target:0.6, label:'FLUX' };
+    const wave = { points: Array(80).fill(0), phase:0 };
 
-    function warpLoop() {
+    // ── NEBULA state ──
+    let nebPhase = 0;
+
+    // ── MATRIX state ──
+    let matCols = [];
+    function initMatrix() {
+        const colW = 12;
+        matCols = Array.from({length: Math.ceil(W/colW)}, (_, i) => ({
+            x: i * colW, y: Math.random()*H*2 - H,
+            speed: 2 + Math.random()*5, chars: []
+        }));
+        matCols.forEach(c => {
+            const len = 8 + Math.floor(Math.random()*14);
+            c.chars = Array.from({length:len}, () => String.fromCharCode(0x30A0 + Math.floor(Math.random()*96)));
+        });
+    }
+
+    // ── RADAR state ──
+    let radarAngle = 0;
+    let radarBlips = [];
+    function initRadar() {
+        radarBlips = Array.from({length:8}, () => ({
+            a: Math.random()*Math.PI*2, d: 20+Math.random()*70, age:0, maxAge:120+Math.random()*100
+        }));
+    }
+
+    function initMode() {
+        if (mode === 'warp') initWarp();
+        if (mode === 'matrix') initMatrix();
+        if (mode === 'radar') initRadar();
+    }
+
+    // ── DRAW FUNCTIONS ──
+
+    function drawWarp() {
         ctx.fillStyle = 'rgba(0,4,14,0.22)';
         ctx.fillRect(0,0,W,H);
-
         warpStars.forEach(s => {
             s.pz = s.z; s.z -= 7;
-            if (s.z <= 0) { resetStar(s); return; }
+            if (s.z <= 0) { resetWarpStar(s); return; }
             const sx = (s.x/s.z)*W+CX, sy = (s.y/s.z)*H+CY;
             const px = (s.x/s.pz)*W+CX, py = (s.y/s.pz)*H+CY;
-            if (sx<0||sx>W||sy<0||sy>H) { resetStar(s); return; }
-            const t = 1-s.z/W;
-            const bright = Math.floor(t*255);
-            ctx.strokeStyle = `rgba(${bright},${Math.floor(bright*0.7)},255,${t})`;
-            ctx.lineWidth = Math.max(0.4, t*2.2);
+            if (sx<0||sx>W||sy<0||sy>H) { resetWarpStar(s); return; }
+            const f = 1-s.z/W;
+            const bright = Math.floor(f*255);
+            ctx.strokeStyle = `rgba(${bright},${Math.floor(bright*0.7)},255,${f})`;
+            ctx.lineWidth = Math.max(0.4, f*2.2);
             ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(sx,sy); ctx.stroke();
         });
-
-        // center glow ring
         msgPulse += 0.04;
         const glow = ctx.createRadialGradient(CX,CY,8,CX,CY,60);
         glow.addColorStop(0, `rgba(0,200,255,${0.12+0.06*Math.sin(msgPulse)})`);
         glow.addColorStop(1, 'transparent');
         ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(CX,CY,60,0,Math.PI*2); ctx.fill();
-
-        // message text
         msgTimer++;
         if (msgTimer > 220) { msgTimer = 0; msgIdx = (msgIdx+2) % MESSAGES.length; }
         const alpha = msgTimer < 30 ? msgTimer/30 : msgTimer > 190 ? (220-msgTimer)/30 : 1;
@@ -678,180 +772,227 @@ function closeModal(){
         ctx.fillStyle = `rgba(180,240,255,${alpha*0.8})`;
         ctx.fillText(MESSAGES[msgIdx+1], CX, CY+10);
         ctx.restore();
-
-        requestAnimationFrame(warpLoop);
-    }
-    warpLoop();
-})();
-
-// ── RIGHT PANEL: COCKPIT INSTRUMENTS ─────────────────────
-(() => {
-    const zone = document.querySelector('.nano-side:last-child');
-    const wc = document.createElement('canvas');
-    wc.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;';
-    wc.width = 520; wc.height = 200;
-    zone.appendChild(wc);
-    const ctx = wc.getContext('2d');
-    const W = 520, H = 200;
-    let t = 0;
-
-    // LEDs
-    const leds = Array.from({length:16}, (_, i) => ({
-        x: 18 + i*30, y: 16,
-        color: ['#0f0','#0f0','#ff0','#f80','#f00','#0f0','#0ff','#0f0',
-                '#f00','#ff0','#0f0','#0f0','#f80','#0ff','#f00','#0f0'][i],
-        phase: Math.random()*Math.PI*2,
-        rate:  0.04 + Math.random()*0.08
-    }));
-
-    // Rolling number displays (3 blocks)
-    const counters = [
-        { x:20,  y:40, label:'PWR', val:0, speed:7,   max:9999 },
-        { x:195, y:40, label:'FREQ',val:0, speed:13,  max:9999 },
-        { x:370, y:40, label:'VEC', val:0, speed:3,   max:9999 }
-    ];
-
-    // Toggle switches
-    const toggles = [
-        { x:30,  y:115, label:'THRUST',  state:1, flip:0, rate:320 },
-        { x:110, y:115, label:'SHIELD',  state:1, flip:0, rate:480 },
-        { x:190, y:115, label:'HYPDRV',  state:1, flip:0, rate:190 },
-        { x:270, y:115, label:'NAVCOMP', state:0, flip:0, rate:560 },
-        { x:350, y:115, label:'COMMS',   state:1, flip:0, rate:410 },
-        { x:430, y:115, label:'LIFE-SP', state:1, flip:0, rate:700 }
-    ];
-
-    // Analog gauge
-    const gauge = { x:460, y:110, r:32, val:0.6, target:0.6, label:'FLUX' };
-
-    // Waveform
-    const wave = { points: Array(80).fill(0), phase:0 };
-
-    function drawLED(led) {
-        const on = 0.5 + 0.5*Math.sin(led.phase + t*led.rate);
-        const hex = led.color;
-        ctx.beginPath(); ctx.arc(led.x, led.y, 5, 0, Math.PI*2);
-        ctx.fillStyle = on > 0.4 ? hex : '#111';
-        ctx.shadowColor = hex; ctx.shadowBlur = on > 0.4 ? 8 : 0;
-        ctx.fill(); ctx.shadowBlur = 0;
-        ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 0.5; ctx.stroke();
     }
 
-    function drawCounter(c) {
-        c.val = (c.val + c.speed) % (c.max+1);
-        const str = String(Math.floor(c.val)).padStart(4,'0');
-        // box
-        ctx.fillStyle = 'rgba(0,0,0,0.7)';
-        ctx.strokeStyle = 'rgba(0,255,100,0.3)';
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.roundRect(c.x, c.y, 115, 36, 2); ctx.fill(); ctx.stroke();
-        // label
-        ctx.fillStyle = 'rgba(0,200,80,0.45)'; ctx.font = '7px "Orbitron",monospace';
-        ctx.textAlign = 'left'; ctx.fillText(c.label, c.x+4, c.y+10);
-        // digits
-        ctx.fillStyle = '#0f0'; ctx.font = 'bold 19px "Courier New",monospace';
-        ctx.shadowColor = '#0f0'; ctx.shadowBlur = 6;
-        ctx.fillText(str, c.x+10, c.y+30);
-        ctx.shadowBlur = 0;
-    }
-
-    function drawToggle(tog) {
-        tog.flip++;
-        if (tog.flip > tog.rate) { tog.state = 1 - tog.state; tog.flip = 0; }
-        const on = tog.state === 1;
-        const bx = tog.x, by = tog.y;
-        // base
-        ctx.fillStyle = '#1a1a1a';
-        ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.roundRect(bx, by, 48, 52, 3); ctx.fill(); ctx.stroke();
-        // slot
-        ctx.fillStyle = '#0a0a0a';
-        ctx.beginPath(); ctx.roundRect(bx+17, by+4, 14, 34, 4); ctx.fill();
-        // lever
-        const ly = on ? by+6 : by+22;
-        const lg = ctx.createLinearGradient(bx+16, ly, bx+32, ly+14);
-        lg.addColorStop(0, on ? '#aaa' : '#888');
-        lg.addColorStop(1, on ? '#555' : '#333');
-        ctx.fillStyle = lg;
-        ctx.beginPath(); ctx.roundRect(bx+16, ly, 16, 14, 3); ctx.fill();
-        ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.stroke();
-        // indicator dot
-        ctx.beginPath(); ctx.arc(bx+24, by+44, 4, 0, Math.PI*2);
-        ctx.fillStyle = on ? '#0f0' : '#500';
-        ctx.shadowColor = on ? '#0f0' : '#f00'; ctx.shadowBlur = on ? 7 : 3;
-        ctx.fill(); ctx.shadowBlur = 0;
-        // label
-        ctx.fillStyle = 'rgba(200,220,255,0.3)'; ctx.font = '5.5px "Orbitron",monospace';
-        ctx.textAlign = 'center'; ctx.fillText(tog.label, bx+24, by+62);
-    }
-
-    function drawGauge(g) {
-        g.target = 0.3 + 0.5*Math.sin(t*0.007) + 0.1*Math.sin(t*0.023);
-        g.val += (g.target - g.val) * 0.02;
-        const startA = Math.PI*0.75, endA = Math.PI*2.25;
-        const sweep = startA + g.val*(endA-startA);
-        // track
-        ctx.beginPath(); ctx.arc(g.x, g.y, g.r, startA, endA);
+    function drawCockpit() {
+        ctx.clearRect(0,0,W,H);
+        ctx.fillStyle = 'rgba(4,8,18,0.92)'; ctx.fillRect(0,0,W,H);
+        ctx.strokeStyle = 'rgba(0,60,100,0.18)'; ctx.lineWidth = 0.5;
+        for(let i=0;i<W;i+=20){ ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,H);ctx.stroke(); }
+        for(let j=0;j<H;j+=20){ ctx.beginPath();ctx.moveTo(0,j);ctx.lineTo(W,j);ctx.stroke(); }
+        leds.forEach(led => {
+            const on = 0.5 + 0.5*Math.sin(led.phase + t*led.rate);
+            ctx.beginPath(); ctx.arc(led.x, led.y, 5, 0, Math.PI*2);
+            ctx.fillStyle = on > 0.4 ? led.color : '#111';
+            ctx.shadowColor = led.color; ctx.shadowBlur = on > 0.4 ? 8 : 0;
+            ctx.fill(); ctx.shadowBlur = 0;
+            ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 0.5; ctx.stroke();
+        });
+        counters.forEach(c => {
+            c.val = (c.val + c.speed) % (c.max+1);
+            const str = String(Math.floor(c.val)).padStart(4,'0');
+            ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.strokeStyle = 'rgba(0,255,100,0.3)'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.roundRect(c.x, c.y, 115, 36, 2); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = 'rgba(0,200,80,0.45)'; ctx.font = '7px "Orbitron",monospace';
+            ctx.textAlign = 'left'; ctx.fillText(c.label, c.x+4, c.y+10);
+            ctx.fillStyle = '#0f0'; ctx.font = 'bold 19px "Courier New",monospace';
+            ctx.shadowColor = '#0f0'; ctx.shadowBlur = 6; ctx.fillText(str, c.x+10, c.y+30); ctx.shadowBlur = 0;
+        });
+        toggles.forEach(tog => {
+            tog.flip++;
+            if (tog.flip > tog.rate) { tog.state = 1 - tog.state; tog.flip = 0; }
+            const on = tog.state === 1, bx = tog.x, by = tog.y;
+            ctx.fillStyle = '#1a1a1a'; ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.roundRect(bx, by, 48, 52, 3); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = '#0a0a0a'; ctx.beginPath(); ctx.roundRect(bx+17, by+4, 14, 34, 4); ctx.fill();
+            const ly = on ? by+6 : by+22;
+            const lg = ctx.createLinearGradient(bx+16, ly, bx+32, ly+14);
+            lg.addColorStop(0, on ? '#aaa' : '#888'); lg.addColorStop(1, on ? '#555' : '#333');
+            ctx.fillStyle = lg; ctx.beginPath(); ctx.roundRect(bx+16, ly, 16, 14, 3); ctx.fill();
+            ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.stroke();
+            ctx.beginPath(); ctx.arc(bx+24, by+44, 4, 0, Math.PI*2);
+            ctx.fillStyle = on ? '#0f0' : '#500'; ctx.shadowColor = on ? '#0f0' : '#f00';
+            ctx.shadowBlur = on ? 7 : 3; ctx.fill(); ctx.shadowBlur = 0;
+            ctx.fillStyle = 'rgba(200,220,255,0.3)'; ctx.font = '5.5px "Orbitron",monospace';
+            ctx.textAlign = 'center'; ctx.fillText(tog.label, bx+24, by+62);
+        });
+        // gauge
+        gauge.target = 0.3 + 0.5*Math.sin(t*0.007) + 0.1*Math.sin(t*0.023);
+        gauge.val += (gauge.target - gauge.val) * 0.02;
+        const startA = Math.PI*0.75, endA = Math.PI*2.25, sweep = startA + gauge.val*(endA-startA);
+        ctx.beginPath(); ctx.arc(gauge.x, gauge.y, gauge.r, startA, endA);
         ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 5; ctx.stroke();
-        // fill
-        const gc = ctx.createLinearGradient(g.x-g.r, g.y, g.x+g.r, g.y);
+        const gc = ctx.createLinearGradient(gauge.x-gauge.r, gauge.y, gauge.x+gauge.r, gauge.y);
         gc.addColorStop(0,'#0f0'); gc.addColorStop(0.6,'#ff0'); gc.addColorStop(1,'#f00');
-        ctx.beginPath(); ctx.arc(g.x, g.y, g.r, startA, sweep);
+        ctx.beginPath(); ctx.arc(gauge.x, gauge.y, gauge.r, startA, sweep);
         ctx.strokeStyle = gc; ctx.lineWidth = 5; ctx.stroke();
-        // needle
-        const nx = g.x + Math.cos(sweep)*g.r*0.7;
-        const ny = g.y + Math.sin(sweep)*g.r*0.7;
-        ctx.beginPath(); ctx.moveTo(g.x,g.y); ctx.lineTo(nx,ny);
+        const nx = gauge.x + Math.cos(sweep)*gauge.r*0.7, ny = gauge.y + Math.sin(sweep)*gauge.r*0.7;
+        ctx.beginPath(); ctx.moveTo(gauge.x,gauge.y); ctx.lineTo(nx,ny);
         ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
-        // center dot
-        ctx.beginPath(); ctx.arc(g.x,g.y,4,0,Math.PI*2);
-        ctx.fillStyle = '#ccc'; ctx.fill();
-        // label
+        ctx.beginPath(); ctx.arc(gauge.x,gauge.y,4,0,Math.PI*2); ctx.fillStyle = '#ccc'; ctx.fill();
         ctx.fillStyle = 'rgba(200,220,255,0.4)'; ctx.font = '7px "Orbitron",monospace';
-        ctx.textAlign = 'center'; ctx.fillText(g.label, g.x, g.y+g.r+12);
-    }
-
-    function drawWaveform() {
-        wave.phase += 0.08;
-        wave.points.shift();
+        ctx.textAlign = 'center'; ctx.fillText(gauge.label, gauge.x, gauge.y+gauge.r+12);
+        // waveform
+        wave.phase += 0.08; wave.points.shift();
         wave.points.push(Math.sin(wave.phase)*14 + Math.sin(wave.phase*2.3)*6 + (Math.random()-0.5)*3);
         const wx = 20, wy = 175, ww = 480, wh = 20;
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.beginPath(); ctx.roundRect(wx, wy-wh, ww, wh*2, 2); ctx.fill();
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.roundRect(wx, wy-wh, ww, wh*2, 2); ctx.fill();
         ctx.beginPath();
         wave.points.forEach((p,i) => {
-            const px = wx + (i/wave.points.length)*ww;
-            const py = wy + p;
+            const px = wx + (i/wave.points.length)*ww, py = wy + p;
             i===0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
         });
         ctx.strokeStyle = 'rgba(0,255,180,0.7)'; ctx.lineWidth = 1.2;
         ctx.shadowColor = '#0fb'; ctx.shadowBlur = 4; ctx.stroke(); ctx.shadowBlur = 0;
-        // label
         ctx.fillStyle = 'rgba(0,255,180,0.3)'; ctx.font = '6px "Orbitron",monospace';
         ctx.textAlign = 'left'; ctx.fillText('SIG', wx+2, wy-wh+8);
     }
 
-    function cockpitLoop() {
-        t++;
-        ctx.clearRect(0,0,W,H);
-        // dark panel bg
-        ctx.fillStyle = 'rgba(4,8,18,0.92)';
-        ctx.fillRect(0,0,W,H);
-        // subtle grid
-        ctx.strokeStyle = 'rgba(0,60,100,0.18)'; ctx.lineWidth = 0.5;
-        for(let i=0;i<W;i+=20){ ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,H);ctx.stroke(); }
-        for(let j=0;j<H;j+=20){ ctx.beginPath();ctx.moveTo(0,j);ctx.lineTo(W,j);ctx.stroke(); }
-
-        leds.forEach(drawLED);
-        counters.forEach(drawCounter);
-        toggles.forEach(drawToggle);
-        drawGauge(gauge);
-        drawWaveform();
-
-        requestAnimationFrame(cockpitLoop);
+    function drawNebula() {
+        nebPhase += 0.008;
+        ctx.fillStyle = 'rgba(0,0,8,0.06)'; ctx.fillRect(0,0,W,H);
+        for (let i = 0; i < 5; i++) {
+            const cx = W * (0.2 + 0.15*Math.sin(nebPhase*(0.7+i*0.3) + i*1.2));
+            const cy = H * (0.3 + 0.2*Math.cos(nebPhase*(0.5+i*0.2) + i*0.8));
+            const r = 50 + 30*Math.sin(nebPhase*0.4 + i);
+            const hue = (nebPhase*20 + i*60) % 360;
+            const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+            g.addColorStop(0, `hsla(${hue},80%,60%,0.08)`);
+            g.addColorStop(0.5, `hsla(${hue+30},70%,40%,0.04)`);
+            g.addColorStop(1, 'transparent');
+            ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
+        }
+        // floating particles
+        for (let i = 0; i < 20; i++) {
+            const px = (W * (0.1*i + Math.sin(nebPhase*0.5 + i*0.7)*0.4 + 0.5)) % W;
+            const py = (H * (0.1*i + Math.cos(nebPhase*0.3 + i*1.1)*0.3 + 0.5)) % H;
+            const hue = (nebPhase*15 + i*40) % 360;
+            ctx.beginPath(); ctx.arc(px, py, 1 + Math.sin(nebPhase+i)*0.8, 0, Math.PI*2);
+            ctx.fillStyle = `hsla(${hue},90%,70%,${0.3+0.2*Math.sin(nebPhase*2+i)})`;
+            ctx.shadowColor = `hsl(${hue},90%,60%)`; ctx.shadowBlur = 6;
+            ctx.fill(); ctx.shadowBlur = 0;
+        }
+        // center text
+        const a = 0.3 + 0.15*Math.sin(nebPhase*2);
+        ctx.save(); ctx.textAlign = 'center';
+        ctx.fillStyle = `rgba(200,180,255,${a})`; ctx.font = 'bold 11px "Orbitron",monospace';
+        ctx.shadowColor = '#a080ff'; ctx.shadowBlur = 12;
+        ctx.fillText('COSMIC DRIFT', CX, CY); ctx.restore();
     }
-    cockpitLoop();
-})();
+
+    function drawMatrix() {
+        ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.fillRect(0,0,W,H);
+        ctx.font = '11px "Courier New",monospace';
+        ctx.shadowColor = '#0f0'; ctx.shadowBlur = 3;
+        matCols.forEach(col => {
+            col.y += col.speed;
+            if (col.y > H + col.chars.length*14) {
+                col.y = -col.chars.length*14;
+                col.speed = 2 + Math.random()*5;
+                col.chars = col.chars.map(() => String.fromCharCode(0x30A0 + Math.floor(Math.random()*96)));
+            }
+            col.chars.forEach((ch, i) => {
+                const cy = col.y + i*14;
+                if (cy < -14 || cy > H+14) return;
+                const isHead = i === col.chars.length-1;
+                ctx.fillStyle = isHead ? '#fff' : `rgba(0,255,70,${0.9 - (i/col.chars.length)*0.7})`;
+                ctx.fillText(ch, col.x, cy);
+            });
+            // randomly mutate chars
+            if (Math.random() < 0.03) {
+                const ri = Math.floor(Math.random()*col.chars.length);
+                col.chars[ri] = String.fromCharCode(0x30A0 + Math.floor(Math.random()*96));
+            }
+        });
+        ctx.shadowBlur = 0;
+    }
+
+    function drawRadar() {
+        ctx.fillStyle = 'rgba(0,4,2,0.08)'; ctx.fillRect(0,0,W,H);
+        const rcx = CX, rcy = CY, rr = 85;
+        radarAngle += 0.025;
+        // rings
+        ctx.strokeStyle = 'rgba(0,200,80,0.15)'; ctx.lineWidth = 0.5;
+        [0.33, 0.66, 1].forEach(f => {
+            ctx.beginPath(); ctx.arc(rcx, rcy, rr*f, 0, Math.PI*2); ctx.stroke();
+        });
+        // cross
+        ctx.beginPath(); ctx.moveTo(rcx-rr,rcy); ctx.lineTo(rcx+rr,rcy); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(rcx,rcy-rr); ctx.lineTo(rcx,rcy+rr); ctx.stroke();
+        // sweep
+        const sx = rcx + Math.cos(radarAngle)*rr, sy = rcy + Math.sin(radarAngle)*rr;
+        const sg = ctx.createLinearGradient(rcx, rcy, sx, sy);
+        sg.addColorStop(0, 'rgba(0,255,100,0.4)'); sg.addColorStop(1, 'rgba(0,255,100,0)');
+        ctx.strokeStyle = sg; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(rcx,rcy); ctx.lineTo(sx,sy); ctx.stroke();
+        // sweep arc trail
+        const arcG = ctx.createConicGradient(radarAngle - 0.5, rcx, rcy);
+        arcG.addColorStop(0, 'transparent'); arcG.addColorStop(0.12, 'rgba(0,255,100,0.08)');
+        arcG.addColorStop(0.15, 'transparent');
+        ctx.fillStyle = arcG; ctx.beginPath(); ctx.arc(rcx, rcy, rr, 0, Math.PI*2); ctx.fill();
+        // blips
+        radarBlips.forEach(b => {
+            b.age++;
+            if (b.age > b.maxAge) { b.a = Math.random()*Math.PI*2; b.d = 20+Math.random()*70; b.age = 0; }
+            const bx = rcx + Math.cos(b.a)*b.d, by = rcy + Math.sin(b.a)*b.d;
+            const ba = Math.max(0, 1 - b.age/b.maxAge);
+            ctx.beginPath(); ctx.arc(bx, by, 2.5, 0, Math.PI*2);
+            ctx.fillStyle = `rgba(0,255,100,${ba*0.8})`; ctx.shadowColor = '#0f0'; ctx.shadowBlur = 6;
+            ctx.fill(); ctx.shadowBlur = 0;
+        });
+        // label
+        ctx.fillStyle = 'rgba(0,200,80,0.35)'; ctx.font = '7px "Orbitron",monospace';
+        ctx.textAlign = 'center'; ctx.fillText('SCAN ACTIVE', rcx, rcy+rr+14);
+    }
+
+    // ── CUSTOM IMAGE state ──
+    let customImg = null;
+    let customPulse = 0;
+
+    function drawCustom() {
+        const imgSrc = customImages[mode];
+        if (!imgSrc) return;
+        if (!customImg || customImg._src !== imgSrc) {
+            customImg = new Image();
+            customImg._src = imgSrc;
+            customImg.src = 'file://' + imgSrc;
+        }
+        ctx.clearRect(0,0,W,H);
+        ctx.fillStyle = 'rgba(0,4,14,0.95)'; ctx.fillRect(0,0,W,H);
+        if (customImg.complete && customImg.naturalWidth) {
+            // draw centered, cover
+            const ar = customImg.naturalWidth / customImg.naturalHeight;
+            let dw = W, dh = H;
+            if (ar > W/H) { dh = H; dw = H * ar; } else { dw = W; dh = W / ar; }
+            ctx.globalAlpha = 0.7;
+            ctx.drawImage(customImg, (W-dw)/2, (H-dh)/2, dw, dh);
+            ctx.globalAlpha = 1;
+        }
+        // subtle scanline overlay
+        customPulse += 0.02;
+        for (let y = 0; y < H; y += 3) {
+            ctx.fillStyle = `rgba(0,0,0,${0.15 + 0.05*Math.sin(customPulse + y*0.1)})`;
+            ctx.fillRect(0, y, W, 1);
+        }
+    }
+
+    initMode();
+
+    function loop() {
+        t++;
+        if (mode === 'warp') drawWarp();
+        else if (mode === 'cockpit') drawCockpit();
+        else if (mode === 'nebula') drawNebula();
+        else if (mode === 'matrix') drawMatrix();
+        else if (mode === 'radar') drawRadar();
+        else if (mode.startsWith('custom-')) drawCustom();
+        requestAnimationFrame(loop);
+    }
+    loop();
+}
+
+createNanoAnimation('nanoLeft', 'nanoLeftMode', 'warp');
+createNanoAnimation('nanoRight', 'nanoRightMode', 'cockpit');
 
 // ── SHUTDOWN SOUND ────────────────────────────────────────
 window.scc.onAppClosing(() => {
@@ -901,4 +1042,119 @@ window.scc.onAppClosing(() => {
             refreshLedger();
         }
     });
+})();
+
+// ── 777-MINUTE WARP DRIVE EASTER EGG ─────────────────────
+(() => {
+    const TRIGGER_MS = 777 * 60 * 1000; // 777 minutes
+    let warpTriggered = false;
+
+    setTimeout(() => {
+        if (warpTriggered) return;
+        warpTriggered = true;
+
+        // Create fullscreen overlay
+        const overlay = document.createElement('canvas');
+        overlay.id = 'warpOverlay';
+        overlay.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;z-index:99999;pointer-events:none;';
+        overlay.width = window.innerWidth;
+        overlay.height = window.innerHeight;
+        document.body.appendChild(overlay);
+        const ctx = overlay.getContext('2d');
+        const W = overlay.width, H = overlay.height, CX = W/2, CY = H/2;
+
+        // Shake the whole window (intensity fades after 10s)
+        let shakeInt = setInterval(() => {
+            const elapsed = performance.now() - startTime;
+            let intensity = 12;
+            if (elapsed > 10000) intensity = Math.max(0.5, 12 * (1 - (elapsed - 10000) / 3000));
+            const dx = (Math.random()-0.5)*intensity, dy = (Math.random()-0.5)*intensity;
+            document.body.style.transform = `translate(${dx}px,${dy}px)`;
+        }, 30);
+
+        // Warp stars
+        const wStars = Array.from({length:300}, () => ({
+            x:(Math.random()-0.5)*W*2, y:(Math.random()-0.5)*H*2,
+            z:Math.random()*W, pz:0
+        }));
+
+        const DURATION = 17000;   // 17 seconds total (12s sound + 5s title hold)
+        const MSG_IN   = 3000;    // text appears at 3s
+        const MSG_OUT  = 15500;   // text fades at 15.5s
+        const FADE_MS  = 500;     // fade in/out duration
+        const startTime = performance.now();
+
+        function warpFrame(now) {
+            const elapsed = now - startTime;
+            const progress = elapsed / DURATION; // 0..1
+
+            // After 10s, fade to black for quiet title reading
+            const fadePhase = elapsed > 10000 ? Math.min(1, (elapsed - 10000) / 2000) : 0;
+            ctx.fillStyle = elapsed < 300 ? '#000' : `rgba(0,0,8,${0.15 + 0.1*Math.sin(elapsed*0.006) + fadePhase*0.6})`;
+            ctx.fillRect(0,0,W,H);
+
+            // Accelerating stars (fade out after 10s)
+            const starAlpha = 1 - fadePhase;
+            if (starAlpha > 0.01) {
+                const speed = 5 + progress * 40;
+                wStars.forEach(s => {
+                    s.pz = s.z; s.z -= speed;
+                    if (s.z <= 0) { s.x=(Math.random()-0.5)*W*2; s.y=(Math.random()-0.5)*H*2; s.z=W; s.pz=s.z; return; }
+                    const sx = (s.x/s.z)*W+CX, sy = (s.y/s.z)*H+CY;
+                    const px = (s.x/s.pz)*W+CX, py = (s.y/s.pz)*H+CY;
+                    if (sx<0||sx>W||sy<0||sy>H) { s.z=W; s.pz=s.z; return; }
+                    const f = (1-s.z/W) * starAlpha;
+                    ctx.strokeStyle = `rgba(${Math.floor(f*200+55)},${Math.floor(f*150+105)},255,${f})`;
+                    ctx.lineWidth = Math.max(0.5, f*3.5);
+                    ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(sx,sy); ctx.stroke();
+                });
+            }
+
+            // Central flash + text
+            if (elapsed > MSG_IN && elapsed < MSG_OUT) {
+                const pulse = 0.5 + 0.3*Math.sin(elapsed*0.009);
+                const glow = ctx.createRadialGradient(CX,CY,0,CX,CY,200);
+                glow.addColorStop(0, `rgba(0,200,255,${pulse*0.25})`);
+                glow.addColorStop(1, 'transparent');
+                ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(CX,CY,200,0,Math.PI*2); ctx.fill();
+
+                const tAlpha = elapsed < MSG_IN+FADE_MS ? (elapsed-MSG_IN)/FADE_MS
+                             : elapsed > MSG_OUT-FADE_MS ? (MSG_OUT-elapsed)/FADE_MS : 1;
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.shadowColor = '#0ff'; ctx.shadowBlur = 30;
+
+                ctx.font = 'bold 28px "Orbitron", monospace';
+                ctx.fillStyle = `rgba(0,255,255,${tAlpha})`;
+                ctx.fillText('WARPSPEED UNLOCKED', CX, CY - 40);
+
+                ctx.font = 'bold 16px "Orbitron", monospace';
+                ctx.fillStyle = `rgba(255,220,100,${tAlpha*0.9})`;
+                ctx.fillText('DEV MANIA INITIATED', CX, CY - 5);
+
+                ctx.font = 'bold 13px "Orbitron", monospace';
+                ctx.fillStyle = `rgba(0,255,180,${tAlpha*0.85})`;
+                ctx.fillText('DRINK WATER \u2022 HAVE FOOD \u2022 10 PUSH-UPS!', CX, CY + 30);
+
+                ctx.font = '10px "Orbitron", monospace';
+                ctx.fillStyle = `rgba(180,220,255,${tAlpha*0.5})`;
+                ctx.fillText('777 MINUTES OF PURE FOCUS', CX, CY + 60);
+
+                ctx.restore();
+            }
+
+            if (elapsed < DURATION) {
+                requestAnimationFrame(warpFrame);
+            } else {
+                clearInterval(shakeInt);
+                document.body.style.transform = '';
+                overlay.remove();
+            }
+        }
+
+        // Play the 12s buildup sound
+        playSound('warp-unlock.wav', 0.9);
+        requestAnimationFrame(warpFrame);
+
+    }, TRIGGER_MS);
 })();

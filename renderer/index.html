@@ -348,6 +348,15 @@
         }
 
         .nano-label { display: none; }
+        .nano-side { cursor: pointer; }
+        .nano-mode-label {
+            position: absolute; bottom: 4px; right: 8px;
+            font-size: 6px; letter-spacing: 2px;
+            color: var(--text-faint); opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .nano-side:hover .nano-mode-label { opacity: 1; }
 
         /* CENTER LEDGER — solid background so cockpit image doesn't bleed through */
         #cmdCenter { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--panel-bg); }
@@ -531,7 +540,7 @@
         <span class="ch-arrow">▲</span>
     </div>
     <div id="cmdContent">
-        <div class="nano-side" id="nanoLeft"><div class="nano-label">NANOBANANA<br>ZONE</div></div>
+        <div class="nano-side" id="nanoLeft"><div class="nano-label">NANOBANANA<br>ZONE</div><div class="nano-mode-label" id="nanoLeftMode"></div></div>
         <div id="cmdCenter">
             <div id="cmdCenterTop">
                 <div id="cmdCenterTitle">PROJECTS</div>
@@ -546,7 +555,7 @@
             </div>
             <div class="cmd-body" id="ledger"></div>
         </div>
-        <div class="nano-side" id="nanoRight"><div class="nano-label">NANOBANANA<br>ZONE</div></div>
+        <div class="nano-side" id="nanoRight"><div class="nano-label">NANOBANANA<br>ZONE</div><div class="nano-mode-label" id="nanoRightMode"></div></div>
     </div>
 </div>
 
@@ -562,7 +571,12 @@
             </select>
         </div>
         <div class="m-field"><div class="m-label">LOG FILE (in ~/logs/)</div><input class="m-input" id="mLog" placeholder="project-name.log" autocomplete="off"></div>
-        <div class="m-field"><div class="m-label">PROJECT PATH (optional)</div><input class="m-input" id="mPath" placeholder="/Users/janua/projects/my-project" autocomplete="off"></div>
+        <div class="m-field"><div class="m-label">PROJECT PATH (leave empty for home directory)</div>
+            <div style="display:flex;gap:6px;align-items:center;">
+                <input class="m-input" id="mPath" placeholder="~/projects/my-project" autocomplete="off" style="flex:1;">
+                <button class="m-btn ok" id="mBrowse" style="padding:7px 12px;font-size:8px;white-space:nowrap;">BROWSE</button>
+            </div>
+        </div>
         <div class="m-btns">
             <button class="m-btn cancel" id="mCancel">CANCEL</button>
             <button class="m-btn ok" id="mOk">ADD</button>

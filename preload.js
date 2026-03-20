@@ -17,6 +17,10 @@ contextBridge.exposeInMainWorld('scc', {
   // Assets
   assetsPath: path.join(__dirname, 'assets'),
 
+  // Dialogs
+  pickFolder: () => ipcRenderer.invoke('dialog:pick-folder'),
+  pickImage:  () => ipcRenderer.invoke('dialog:pick-image'),
+
   // Navigation
   navigate:    (page) => ipcRenderer.send('navigate', page),
   welcomeDone: ()     => ipcRenderer.send('welcome:done'),
