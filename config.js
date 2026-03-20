@@ -5,6 +5,7 @@ const os   = require('os');
 const DEFAULT_CONFIG = {
   welcomeSeen: false,
   claudeShortcut: 'Ctrl+Shift+C',
+  theme: 'cyan-cockpit',
   projects: []
 };
 

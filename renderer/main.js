@@ -65,6 +65,32 @@ import { initTerminal, destroyTerminal } from './terminal.js';
     })();
 })();
 
+// ── THEME SYSTEM ──────────────────────────────────────────
+const THEMES = ['cyan-cockpit', 'amber', 'solarized', 'native'];
+const THEME_LABELS = { 'cyan-cockpit': 'CYAN', 'amber': 'AMBER', 'solarized': 'SOL', 'native': 'OS' };
+
+let currentTheme = 'cyan-cockpit';
+
+function applyTheme(theme) {
+    document.body.className = document.body.className
+        .replace(/\btheme-\S+/g, '').trim();
+    if (theme !== 'cyan-cockpit') {
+        document.body.classList.add('theme-' + theme);
+    }
+    currentTheme = theme;
+    const btn = document.getElementById('themeBtn');
+    if (btn) btn.textContent = THEME_LABELS[theme] || 'THEME';
+}
+
+document.getElementById('themeBtn').addEventListener('click', async () => {
+    const idx = (THEMES.indexOf(currentTheme) + 1) % THEMES.length;
+    const next = THEMES[idx];
+    applyTheme(next);
+    const cfg = await window.scc.readConfig();
+    cfg.theme = next;
+    await window.scc.writeConfig(cfg);
+});
+
 // ── CONFIG ───────────────────────────────────────────────
 const SIZES = { S:{w:260,h:170}, M:{w:420,h:280}, L:{w:640,h:440} };
 
@@ -173,6 +199,9 @@ function mkWin(cfg) {
     if (state === 'minimized')  el.classList.add('minimized');
     if (state === 'fullscreen') applyFS(el, true);
 
+    // Snake border: start in running state
+    el.dataset.snake = 'running';
+
     document.body.appendChild(el);
 
     // Clear any existing children safely and mount terminal
@@ -182,7 +211,12 @@ function mkWin(cfg) {
     body.appendChild(termContainer);
 
     requestAnimationFrame(() => {
-        initTerminal(id, termContainer, path || '').catch(err =>
+        initTerminal(id, termContainer, path || '', (winId, snakeState) => {
+            const win = wins.find(w => w.id === winId);
+            if (win && win.element) {
+                win.element.dataset.snake = snakeState;
+            }
+        }).catch(err =>
             console.error('[scc] terminal init failed for', id, err)
         );
     });
@@ -833,6 +867,8 @@ function closeModal(){
 // ── INIT ──────────────────────────────────────────────────
 (async () => {
     const cfg = await window.scc.readConfig();
+
+    if (cfg.theme) applyTheme(cfg.theme);
 
     if (cfg.claudeShortcut) {
         const parts = cfg.claudeShortcut.split('+');

@@ -4,14 +4,27 @@ import '@xterm/xterm/css/xterm.css';
 
 const terminals = new Map();
 
+// Prompt patterns: common shells
+const PROMPT_RE = /[\$%#❯>]\s*$/m;
+
 // Route all pty output to the correct xterm instance.
 // Registered once at module load — survives for the page lifetime.
 window.scc.onTermData(({ id, data }) => {
   const t = terminals.get(id);
-  if (t) t.term.write(data);
+  if (!t) return;
+  t.term.write(data);
+
+  // Detect shell prompt in output → mark window as done
+  if (t.onStateChange) {
+    t.lastOutput = (t.lastOutput || '').slice(-200) + data;
+    if (PROMPT_RE.test(t.lastOutput)) {
+      t.lastOutput = '';
+      t.onStateChange(id, 'done');
+    }
+  }
 });
 
-export async function initTerminal(id, container, projectPath) {
+export async function initTerminal(id, container, projectPath, onStateChange) {
   const term = new Terminal({
     fontFamily: '"Courier New", monospace',
     fontSize: 12,
@@ -39,8 +52,14 @@ export async function initTerminal(id, container, projectPath) {
   });
   resizeObserver.observe(container);
 
-  term.onData(data => window.scc.termInput(id, data));
-  terminals.set(id, { term, fit, resizeObserver });
+  term.onData(data => {
+    window.scc.termInput(id, data);
+    // User typed → process is running again
+    const entry = terminals.get(id);
+    if (entry && entry.onStateChange) entry.onStateChange(id, 'running');
+  });
+
+  terminals.set(id, { term, fit, resizeObserver, onStateChange, lastOutput: '' });
 }
 
 export function destroyTerminal(id) {
