@@ -3,7 +3,10 @@ import { initTerminal, destroyTerminal } from './terminal.js';
 // ── SOUND ─────────────────────────────────────────────────
 const DONE_SOUNDS = ['done-boing.wav', 'done-notification.wav', 'done-coin.wav'];
 
+let soundEnabled = true;
+
 function playSound(file, volume = 0.65) {
+    if (!soundEnabled) return;
     try {
         const audio = new Audio(`file://${window.scc.assetsPath}/sounds/${file}`);
         audio.volume = volume;
@@ -11,60 +14,24 @@ function playSound(file, volume = 0.65) {
     } catch (_) {}
 }
 
-// ── STARFIELD + PLANETS ──────────────────────────────────
+// ── STARFIELD ─────────────────────────────────────────────
 (() => {
     const c = document.getElementById('stars'), ctx = c.getContext('2d');
     const resize = () => { c.width = innerWidth; c.height = innerHeight; };
     resize(); addEventListener('resize', resize);
 
-    const stars = Array.from({length:220}, () => ({
+    const stars = Array.from({length:400}, () => ({
         x: Math.random()*innerWidth, y: Math.random()*innerHeight,
         r: Math.random()*1.3+0.1,
-        b: Math.random()*0.5+0.1,
+        b: Math.random()*0.5+0.2,
         p: Math.random()*Math.PI*2,
         s: 0.003+Math.random()*0.006,
         vx: (Math.random()-0.5)*0.04,
         vy: (Math.random()-0.5)*0.04
     }));
 
-    const planets = [
-        { x:innerWidth*0.15, y:innerHeight*0.22, r:28, vx:0.018, vy:0.007,
-          col:'#3a6e8c', col2:'#1a3d52', rings:true, ringCol:'rgba(120,180,220,0.35)' },
-        { x:innerWidth*0.72, y:innerHeight*0.14, r:18, vx:-0.012, vy:0.009,
-          col:'#7a4e2d', col2:'#4a2a10', rings:false },
-        { x:innerWidth*0.88, y:innerHeight*0.55, r:11, vx:-0.02, vy:-0.005,
-          col:'#2d6e3a', col2:'#1a3d22', rings:false }
-    ];
-
-    function drawPlanet(p) {
-        const g = ctx.createRadialGradient(p.x-p.r*0.3, p.y-p.r*0.3, p.r*0.1, p.x, p.y, p.r);
-        g.addColorStop(0, p.col); g.addColorStop(1, p.col2);
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
-        ctx.fillStyle = g; ctx.fill();
-        if (p.rings) {
-            ctx.save();
-            ctx.translate(p.x, p.y); ctx.scale(1, 0.32);
-            ctx.beginPath(); ctx.arc(0, 0, p.r*1.9, 0, Math.PI*2);
-            ctx.strokeStyle = p.ringCol; ctx.lineWidth = p.r*0.55; ctx.stroke();
-            ctx.restore();
-        }
-        // subtle atmosphere glow
-        const ag = ctx.createRadialGradient(p.x, p.y, p.r*0.85, p.x, p.y, p.r*1.2);
-        ag.addColorStop(0, 'transparent'); ag.addColorStop(1, p.col+'22');
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r*1.2, 0, Math.PI*2);
-        ctx.fillStyle = ag; ctx.fill();
-    }
-
     (function draw() {
         ctx.clearRect(0,0,c.width,c.height);
-        planets.forEach(p => {
-            p.x += p.vx; p.y += p.vy;
-            if (p.x < -p.r*3) p.x = c.width + p.r*3;
-            if (p.x > c.width+p.r*3) p.x = -p.r*3;
-            if (p.y < -p.r*3) p.y = c.height+p.r*3;
-            if (p.y > c.height+p.r*3) p.y = -p.r*3;
-            drawPlanet(p);
-        });
         stars.forEach(s => {
             s.x += s.vx; s.y += s.vy; s.p += s.s;
             if (s.x < 0) s.x = c.width; if (s.x > c.width) s.x = 0;
@@ -99,6 +66,14 @@ document.getElementById('themeBtn').addEventListener('click', async () => {
     applyTheme(next);
     const cfg = await window.scc.readConfig();
     cfg.theme = next;
+    await window.scc.writeConfig(cfg);
+});
+
+document.getElementById('soundBtn').addEventListener('click', async () => {
+    soundEnabled = !soundEnabled;
+    document.getElementById('soundBtn').textContent = soundEnabled ? 'SFX ON' : 'SFX OFF';
+    const cfg = await window.scc.readConfig();
+    cfg.soundEnabled = soundEnabled;
     await window.scc.writeConfig(cfg);
 });
 
@@ -889,6 +864,12 @@ window.scc.onAppClosing(() => {
     const cfg = await window.scc.readConfig();
 
     if (cfg.theme) applyTheme(cfg.theme);
+
+    if (cfg.soundEnabled === false) {
+        soundEnabled = false;
+        const btn = document.getElementById('soundBtn');
+        if (btn) btn.textContent = 'SFX OFF';
+    }
 
     if (cfg.claudeShortcut) {
         const parts = cfg.claudeShortcut.split('+');
