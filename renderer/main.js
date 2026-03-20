@@ -182,7 +182,9 @@ function mkWin(cfg) {
     body.appendChild(termContainer);
 
     requestAnimationFrame(() => {
-        initTerminal(id, termContainer, path || '');
+        initTerminal(id, termContainer, path || '').catch(err =>
+            console.error('[scc] terminal init failed for', id, err)
+        );
     });
 
     const data = {
