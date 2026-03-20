@@ -9,6 +9,10 @@ const DEFAULT_CONFIG = {
 };
 
 function createConfig(configPath) {
+  if (!configPath || typeof configPath !== 'string') {
+    throw new TypeError('configPath must be a non-empty string');
+  }
+
   function readConfig() {
     try {
       const raw  = fs.readFileSync(configPath, 'utf8');

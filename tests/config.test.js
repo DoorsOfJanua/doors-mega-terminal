@@ -37,3 +37,10 @@ test('writeConfig creates directory if missing', () => {
   expect(() => cfg.writeConfig(DEFAULT_CONFIG)).not.toThrow();
   expect(fs.existsSync(TEST_PATH)).toBe(true);
 });
+
+test('readConfig returns defaults when file contains invalid JSON', () => {
+  fs.mkdirSync(path.dirname(TEST_PATH), { recursive: true });
+  fs.writeFileSync(TEST_PATH, '{ not valid json !!!');
+  const result = cfg.readConfig();
+  expect(result).toEqual(DEFAULT_CONFIG);
+});
