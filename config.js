@@ -6,6 +6,7 @@ const DEFAULT_CONFIG = {
   welcomeSeen: false,
   claudeShortcut: 'Ctrl+Shift+C',
   theme: 'cyan-cockpit',
+  soundEnabled: true,
   projects: []
 };
 
