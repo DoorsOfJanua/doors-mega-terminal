@@ -1,3 +1,5 @@
+import { initTerminal, destroyTerminal } from './terminal.js';
+
 // ── STARFIELD + PLANETS ──────────────────────────────────
 (() => {
     const c = document.getElementById('stars'), ctx = c.getContext('2d');
@@ -152,10 +154,6 @@ function mkWin(cfg) {
 
     // Body
     const body    = document.createElement('div'); body.className = 'panel-body';
-    const content = document.createElement('div'); content.className = 'panel-content';
-    const ph = document.createElement('span'); ph.className = 'log-line muted';
-    setTxt(ph, log ? '// waiting for ' + log : '// no log file — add one to connect');
-    content.appendChild(ph); body.appendChild(content);
 
     // Footer
     const footer = document.createElement('div'); footer.className = 'panel-footer';
@@ -177,6 +175,16 @@ function mkWin(cfg) {
 
     document.body.appendChild(el);
 
+    // Clear any existing children safely and mount terminal
+    while (body.firstChild) body.removeChild(body.firstChild);
+    const termContainer = document.createElement('div');
+    termContainer.style.cssText = 'width:100%;height:100%;';
+    body.appendChild(termContainer);
+
+    requestAnimationFrame(() => {
+        initTerminal(id, termContainer, path || '');
+    });
+
     const data = {
         id, title, model, logFile:log, path,
         x, y, width, height, state, zIndex:zi,
@@ -184,7 +192,6 @@ function mkWin(cfg) {
     };
     wins.push(data);
     bindWin(data);
-    if (data.lastLines.length) renderLines(data, data.lastLines);
     refreshLedger();
     return data;
 }
@@ -298,6 +305,7 @@ function resizeWin(data, size) {
 
 function rmWin(id) {
     const idx=wins.findIndex(w=>w.id===id); if(idx<0) return;
+    destroyTerminal(id);
     wins[idx].element.remove(); wins.splice(idx,1);
     refreshLedger();
 }
@@ -479,10 +487,21 @@ function toggleCmd() { document.getElementById('cmdBar').classList.toggle('colla
 document.getElementById('cmdHandle').addEventListener('click',toggleCmd);
 
 // ── KEYBOARD ──────────────────────────────────────────────
+let claudeShortcut = { ctrl: true, shift: true, key: 'C' };
+
 document.addEventListener('keydown',e=>{
     if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
     if(e.code==='Space'){ e.preventDefault(); toggleCmd(); }
     if(e.key==='Escape') wins.filter(w=>w.state==='fullscreen').forEach(w=>toggleFS(w));
+
+    if (e.ctrlKey  === (claudeShortcut.ctrl  || false) &&
+        e.shiftKey === (claudeShortcut.shift || false) &&
+        e.altKey   === (claudeShortcut.alt   || false) &&
+        e.key === claudeShortcut.key) {
+        e.preventDefault();
+        const focused = wins.find(w => w.element && w.element.classList.contains('focused'));
+        if (focused) window.scc.termInput(focused.id, 'claude\n');
+    }
 });
 
 // ── ADD PROJECT MODAL ─────────────────────────────────────
@@ -777,6 +796,17 @@ function closeModal(){
 // ── INIT ──────────────────────────────────────────────────
 (async () => {
     const cfg = await window.scc.readConfig();
+
+    if (cfg.claudeShortcut) {
+        const parts = cfg.claudeShortcut.split('+');
+        claudeShortcut = {
+            ctrl:  parts.includes('Ctrl'),
+            shift: parts.includes('Shift'),
+            alt:   parts.includes('Alt'),
+            key:   parts[parts.length - 1]
+        };
+    }
+
     if (cfg.projects && cfg.projects.length) {
         cfg.projects.forEach(p => {
             if (!projects.find(q => q.title === p.title)) projects.push(p);
