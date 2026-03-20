@@ -1,5 +1,16 @@
 import { initTerminal, destroyTerminal } from './terminal.js';
 
+// ── SOUND ─────────────────────────────────────────────────
+const DONE_SOUNDS = ['done-boing.wav', 'done-notification.wav', 'done-coin.wav'];
+
+function playSound(file, volume = 0.65) {
+    try {
+        const audio = new Audio(`file://${window.scc.assetsPath}/sounds/${file}`);
+        audio.volume = volume;
+        audio.play().catch(() => {});
+    } catch (_) {}
+}
+
 // ── STARFIELD + PLANETS ──────────────────────────────────
 (() => {
     const c = document.getElementById('stars'), ctx = c.getContext('2d');
@@ -215,6 +226,9 @@ function mkWin(cfg) {
             const win = wins.find(w => w.id === winId);
             if (win && win.element) {
                 win.element.dataset.snake = snakeState;
+                if (snakeState === 'done') {
+                    playSound(DONE_SOUNDS[Math.floor(Math.random() * DONE_SOUNDS.length)], 0.55);
+                }
             }
         }).catch(err =>
             console.error('[scc] terminal init failed for', id, err)
@@ -864,8 +878,14 @@ function closeModal(){
     cockpitLoop();
 })();
 
+// ── SHUTDOWN SOUND ────────────────────────────────────────
+window.scc.onAppClosing(() => {
+    playSound('shutdown.wav', 0.7);
+});
+
 // ── INIT ──────────────────────────────────────────────────
 (async () => {
+    playSound('startup.wav', 0.6);
     const cfg = await window.scc.readConfig();
 
     if (cfg.theme) applyTheme(cfg.theme);

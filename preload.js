@@ -1,4 +1,5 @@
 const { contextBridge, ipcRenderer } = require('electron');
+const path = require('path');
 
 contextBridge.exposeInMainWorld('scc', {
   // Terminal
@@ -12,4 +13,10 @@ contextBridge.exposeInMainWorld('scc', {
   readConfig:      ()    => ipcRenderer.invoke('config:read'),
   writeConfig:     (cfg) => ipcRenderer.invoke('config:write', cfg),
   onConfigChanged: (cb)  => ipcRenderer.on('config:changed', (_e, cfg) => cb(cfg)),
+
+  // Assets
+  assetsPath: path.join(__dirname, 'assets'),
+
+  // App lifecycle
+  onAppClosing: (cb) => ipcRenderer.on('app:closing', () => cb()),
 });
