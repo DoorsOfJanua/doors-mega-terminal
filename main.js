@@ -4,6 +4,7 @@ const { readConfig, writeConfig, watchConfig } = require('./config');
 const PtyManager = require('./pty-manager');
 
 let mainWindow;
+let isClosing = false;
 const ptys = new PtyManager();
 
 function createWindow() {
@@ -25,6 +26,15 @@ function createWindow() {
   } else {
     mainWindow.loadFile('renderer/dist/index.html');
   }
+
+  mainWindow.on('close', (e) => {
+    if (!isClosing) {
+      e.preventDefault();
+      isClosing = true;
+      mainWindow.webContents.send('app:closing');
+      setTimeout(() => mainWindow.destroy(), 2800);
+    }
+  });
 }
 
 app.whenReady().then(() => {
