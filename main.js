@@ -53,6 +53,10 @@ app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
 
+ipcMain.on('navigate', (_e, page) => {
+  if (mainWindow) mainWindow.loadFile(page);
+});
+
 ipcMain.handle('config:read', () => readConfig());
 ipcMain.handle('config:write', (_e, cfg) => { writeConfig(cfg); return { ok: true }; });
 
