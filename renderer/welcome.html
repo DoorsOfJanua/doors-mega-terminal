@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Spaceship Command Center</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { width:100vw; height:100vh; background:#000; font-family:'Orbitron',monospace; color:#0ff; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden; }
+    canvas#bg { position:fixed; inset:0; z-index:0; pointer-events:none; }
+    .content { position:relative; z-index:1; text-align:center; max-width:640px; padding:40px; }
+    .logo { font-size:10px; letter-spacing:6px; color:rgba(0,255,255,0.35); margin-bottom:8px; }
+    h1 { font-size:30px; font-weight:900; letter-spacing:4px; text-shadow:0 0 30px rgba(0,255,255,0.5); margin-bottom:6px; }
+    .sub { font-size:9px; letter-spacing:5px; color:rgba(0,255,255,0.28); margin-bottom:36px; }
+    .joke { font-size:11px; color:rgba(180,240,255,0.65); border:1px solid rgba(0,255,255,0.1); border-radius:3px; padding:14px 20px; margin-bottom:28px; font-family:'Courier New',monospace; line-height:1.9; white-space:pre-line; }
+    .manifesto { font-size:9px; color:rgba(180,220,255,0.38); letter-spacing:1.5px; line-height:2.3; margin-bottom:28px; font-family:'Courier New',monospace; white-space:pre-line; }
+    .website { font-size:9px; color:rgba(0,255,255,0.45); letter-spacing:3px; margin-bottom:28px; }
+    .crypto { display:flex; gap:14px; justify-content:center; margin-bottom:36px; flex-wrap:wrap; }
+    .crypto-item { font-size:7px; color:rgba(180,220,255,0.3); border:1px solid rgba(0,255,255,0.1); padding:8px 12px; border-radius:2px; font-family:'Courier New',monospace; word-break:break-all; max-width:175px; text-align:center; }
+    .crypto-label { color:rgba(0,255,255,0.38); font-size:8px; letter-spacing:3px; margin-bottom:4px; }
+    .enter-btn { background:transparent; border:1px solid rgba(0,255,255,0.35); color:#0ff; font-family:'Orbitron',monospace; font-size:11px; letter-spacing:4px; padding:13px 48px; cursor:pointer; transition:all 0.2s; border-radius:2px; }
+    .enter-btn:hover { background:rgba(0,255,255,0.07); box-shadow:0 0 20px rgba(0,255,255,0.15); }
+    .countdown { font-size:8px; color:rgba(0,255,255,0.22); letter-spacing:2px; margin-top:12px; height:16px; }
+  </style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div class="content">
+  <div class="logo">DOORS OF JANUA PRESENTS</div>
+  <h1>SPACESHIP<br>COMMAND CENTER</h1>
+  <div class="sub">TERMINAL MANAGER FOR BUILDERS</div>
+  <div class="joke" id="joke"></div>
+  <div class="manifesto" id="manifesto"></div>
+  <div class="website">DOORSOFJANUA.COM</div>
+  <div class="crypto">
+    <div class="crypto-item"><div class="crypto-label">BTC</div><span id="btc">add before release</span></div>
+    <div class="crypto-item"><div class="crypto-label">USDT</div><span id="usdt">add before release</span></div>
+    <div class="crypto-item"><div class="crypto-label">XMR</div><span id="xmr">add before release</span></div>
+  </div>
+  <button class="enter-btn" id="enterBtn">ENTER</button>
+  <div class="countdown" id="cd"></div>
+</div>
+<script>
+const JOKES = [
+  'Why do developers prefer dark mode?\nLight attracts bugs.',
+  'A QA engineer walks into a bar.\nOrders 0 beers. Orders 999999 beers. Orders -1 beers. Orders a lizard.',
+  'git commit -m "fix"\ngit commit -m "fix2"\ngit commit -m "PLEASE WORK"',
+  'It works on my machine.\n[ ships machine to client ]',
+  'sudo make me a sandwich.\n-- Every developer at 2am',
+  'There are 10 types of people:\nthose who get binary and those who do not.',
+  'Senior dev tip:\nif it is stupid but it works, it is still stupid and you got lucky.',
+  'The cloud is just someone else computer.\nAnd that computer is also someone else computer.'
+];
+
+document.getElementById('joke').textContent = JOKES[Math.floor(Math.random() * JOKES.length)];
+document.getElementById('manifesto').textContent =
+  'Built for developers who run too many projects at once.\n' +
+  'Because your terminal deserves to look like a cockpit.\n' +
+  'Free forever. No VC. No ads. Just vibes and code.\n' +
+  '-- Janua';
+
+// Starfield
+const c = document.getElementById('bg'), ctx = c.getContext('2d');
+const resize = () => { c.width = innerWidth; c.height = innerHeight; };
+resize(); addEventListener('resize', resize);
+const stars = Array.from({length:180}, () => ({
+  x:Math.random()*innerWidth, y:Math.random()*innerHeight,
+  r:Math.random()*1.2+0.1, b:Math.random()*0.5+0.1,
+  p:Math.random()*Math.PI*2, s:0.003+Math.random()*0.006,
+  vx:(Math.random()-0.5)*0.04, vy:(Math.random()-0.5)*0.04
+}));
+(function draw(){
+  ctx.clearRect(0,0,c.width,c.height);
+  stars.forEach(s=>{
+    s.x+=s.vx; s.y+=s.vy; s.p+=s.s;
+    if(s.x<0)s.x=c.width; if(s.x>c.width)s.x=0;
+    if(s.y<0)s.y=c.height; if(s.y>c.height)s.y=0;
+    ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+    ctx.fillStyle='rgba(180,210,255,'+(s.b*(0.6+0.4*Math.sin(s.p)))+')'; ctx.fill();
+  });
+  requestAnimationFrame(draw);
+})();
+
+// Countdown (first launch only)
+let secs = 8;
+const cd = document.getElementById('cd');
+cd.textContent = 'auto-skip in ' + secs + 's';
+const timer = setInterval(() => {
+  secs--;
+  if (secs <= 0) { clearInterval(timer); enter(); return; }
+  cd.textContent = 'auto-skip in ' + secs + 's';
+}, 1000);
+
+async function enter() {
+  clearInterval(timer);
+  const cfg = await window.scc.readConfig();
+  cfg.welcomeSeen = true;
+  await window.scc.writeConfig(cfg);
+  location.href = './dist/index.html';
+}
+
+document.getElementById('enterBtn').addEventListener('click', enter);
+</script>
+</body>
+</html>
