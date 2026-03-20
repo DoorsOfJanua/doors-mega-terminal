@@ -861,6 +861,9 @@ window.scc.onAppClosing(() => {
 // ── INIT ──────────────────────────────────────────────────
 (async () => {
     playSound('startup.wav', 0.6);
+    const ap = window.scc.assetsPath;
+    document.getElementById('nanoLeft').style.backgroundImage  = `url('file://${ap}/images/nano-left.png')`;
+    document.getElementById('nanoRight').style.backgroundImage = `url('file://${ap}/images/nano-right.png')`;
     const cfg = await window.scc.readConfig();
 
     if (cfg.theme) applyTheme(cfg.theme);
