@@ -18,7 +18,8 @@ contextBridge.exposeInMainWorld('scc', {
   assetsPath: path.join(__dirname, 'assets'),
 
   // Navigation
-  navigate: (page) => ipcRenderer.send('navigate', page),
+  navigate:    (page) => ipcRenderer.send('navigate', page),
+  welcomeDone: ()     => ipcRenderer.send('welcome:done'),
 
   // App lifecycle
   onAppClosing: (cb) => ipcRenderer.on('app:closing', () => cb()),
