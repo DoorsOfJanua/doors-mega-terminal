@@ -60,7 +60,11 @@ function applyTheme(theme) {
     currentTheme = theme;
     // DMT background
     const ap = window.scc.assetsPath;
-    if (theme === 'hyperspace') {
+    if (theme === 'spaceship') {
+        document.body.style.backgroundImage = `url('file://${ap}/images/backgrounds/falcon-cockpit-view.jpg')`;
+        document.body.style.backgroundSize = 'cover';
+        document.body.style.backgroundPosition = 'center';
+    } else if (theme === 'hyperspace') {
         document.body.style.backgroundImage = `url('file://${ap}/images/dmt-bg.jpg')`;
         document.body.style.backgroundSize = 'cover';
         document.body.style.backgroundPosition = 'center';
