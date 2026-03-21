@@ -177,19 +177,36 @@ function switchWorkspace(idx) {
 }
 
 function addWorkspace() {
-    const name = prompt('Workspace name:');
-    if (!name || !name.trim()) return;
-    workspaces.push({ name: name.trim(), projects: [], _wins: [] });
+    const count = workspaces.length + 1;
+    const name = 'WORKSPACE ' + count;
+    workspaces.push({ name, projects: [], _wins: [] });
     switchWorkspace(workspaces.length - 1);
     saveWorkspaces();
+    renderWorkspaceTabs();
 }
 
 function renameWorkspace(idx) {
-    const name = prompt('Rename workspace:', workspaces[idx].name);
-    if (!name || !name.trim()) return;
-    workspaces[idx].name = name.trim();
-    renderWorkspaceTabs();
-    saveWorkspaces();
+    const tabs = document.querySelectorAll('.ws-tab');
+    const tab = tabs[idx];
+    if (!tab) return;
+    tab.contentEditable = true;
+    tab.focus();
+    const range = document.createRange();
+    range.selectNodeContents(tab);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    const finish = () => {
+        tab.contentEditable = false;
+        const name = tab.textContent.trim();
+        if (name) workspaces[idx].name = name;
+        renderWorkspaceTabs();
+        saveWorkspaces();
+    };
+    tab.addEventListener('blur', finish, { once: true });
+    tab.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); tab.blur(); }
+    }, { once: true });
 }
 
 function removeWorkspace(idx) {
@@ -271,13 +288,23 @@ function mkWin(cfg) {
         picker.classList.toggle('show');
     });
 
+    // Claude button — types 'claude' + Enter into the terminal
+    const claudeBtn = document.createElement('button');
+    claudeBtn.className = 'pb claude-btn';
+    claudeBtn.textContent = 'Claude';
+    claudeBtn.title = 'Open Claude Code';
+    claudeBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        sendTerminalInput(id, 'claude\n');
+    });
+
     const btns = document.createElement('div'); btns.className = 'ph-btns';
     const fontDn   = mkPB('−','pb font-dn','Smaller font');
     const fontUp   = mkPB('+','pb font-up','Bigger font');
     const minBtn   = mkPB('_','pb min','Minimise');
     const maxBtn   = mkPB('□','pb max','Fullscreen');
     const closeBtn = mkPB('✕','pb close','Close');
-    btns.append(fontDn, fontUp, minBtn, maxBtn, closeBtn);
+    btns.append(claudeBtn, fontDn, fontUp, minBtn, maxBtn, closeBtn);
     hdr.append(dot, titleEl, modelWrap, btns);
 
     // Body

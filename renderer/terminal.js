@@ -15,11 +15,17 @@ window.scc.onTermData(({ id, data }) => {
   t.term.write(data);
 
   // Detect shell prompt in output → mark window as done
+  // Only fire if there was real command output (not just a prompt redraw from resize)
   if (t.onStateChange) {
+    t.outputLen = (t.outputLen || 0) + data.length;
     t.lastOutput = (t.lastOutput || '').slice(-200) + data;
     if (PROMPT_RE.test(t.lastOutput)) {
+      // Only trigger 'done' if we received substantial output (a real command ran)
+      if (t.outputLen > 50) {
+        t.onStateChange(id, 'done');
+      }
       t.lastOutput = '';
-      t.onStateChange(id, 'done');
+      t.outputLen = 0;
     }
   }
 });
@@ -70,9 +76,12 @@ export async function initTerminal(id, container, projectPath, onStateChange) {
 
   term.onData(data => {
     window.scc.termInput(id, data);
-    // User typed → process is running again
+    // User typed → process is running again, reset output tracking
     const entry = terminals.get(id);
-    if (entry && entry.onStateChange) entry.onStateChange(id, 'running');
+    if (entry) {
+      entry.outputLen = 0;
+      if (entry.onStateChange) entry.onStateChange(id, 'running');
+    }
   });
 
   terminals.set(id, { term, fit, resizeObserver, onStateChange, lastOutput: '' });
