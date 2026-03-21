@@ -41,8 +41,10 @@
       "config.js",
       "pty-manager.js",
       "renderer/dist/**/*",
-      "renderer/welcome.html",
-      "assets/**/*"
+      "renderer/welcome.html"
+    ],
+    "extraResources": [
+      { "from": "assets", "to": "assets" }
     ]
   }
 }

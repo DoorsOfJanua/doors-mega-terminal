@@ -28,6 +28,7 @@ function createWindow() {
     mainWindow.loadFile('renderer/dist/index.html');
   }
 
+
   mainWindow.on('close', (e) => {
     if (!isClosing) {
       e.preventDefault();

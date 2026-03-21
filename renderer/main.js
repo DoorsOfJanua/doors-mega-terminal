@@ -20,7 +20,7 @@ function playSound(file, volume = 0.65) {
     const resize = () => { c.width = innerWidth; c.height = innerHeight; };
     resize(); addEventListener('resize', resize);
 
-    const stars = Array.from({length:400}, () => ({
+    const stars = Array.from({length:800}, () => ({
         x: Math.random()*innerWidth, y: Math.random()*innerHeight,
         r: Math.random()*1.3+0.1,
         b: Math.random()*0.5+0.2,
@@ -78,6 +78,20 @@ function applyTheme(theme) {
     } else {
         nL.style.backgroundImage = `url('file://${ap}/images/nano-left.jpg')`;
         nR.style.backgroundImage = `url('file://${ap}/images/nano-right.jpg')`;
+    }
+    // Switch panel animation mode per theme
+    if (nanoControllers.nanoLeft && nanoControllers.nanoRight) {
+        if (theme === 'hyperspace') {
+            nanoControllers.nanoLeft.setMode('fractal');
+            nanoControllers.nanoRight.setMode('fractal');
+        } else if (theme === 'spaceship') {
+            nanoControllers.nanoLeft.setMode('panel');
+            nanoControllers.nanoRight.setMode('panel');
+        } else {
+            // classic: panels are plain, keep whatever mode but hide canvas
+            nanoControllers.nanoLeft.setMode('panel');
+            nanoControllers.nanoRight.setMode('panel');
+        }
     }
     refreshAllTermThemes();
 }
@@ -648,14 +662,49 @@ function toggleCmd() { document.getElementById('cmdBar').classList.toggle('colla
 document.getElementById('cmdHandle').addEventListener('click',toggleCmd);
 
 // ── COMMAND CENTER FONT SIZE ─────────────────────────────
+// Scales font/padding in the center ledger. Layout reflows naturally, no overflow.
 let cmdFontSize = 12;
-document.getElementById('cmdFontDn').addEventListener('click', () => {
-    cmdFontSize = Math.max(8, cmdFontSize - 1);
+function applyCmdFont() {
+    cmdFontSize = Math.max(8, Math.min(20, cmdFontSize));
     document.getElementById('cmdCenter').style.fontSize = cmdFontSize + 'px';
+}
+document.getElementById('cmdFontDn').addEventListener('click', () => {
+    cmdFontSize--;
+    applyCmdFont();
 });
 document.getElementById('cmdFontUp').addEventListener('click', () => {
-    cmdFontSize = Math.min(20, cmdFontSize + 1);
-    document.getElementById('cmdCenter').style.fontSize = cmdFontSize + 'px';
+    cmdFontSize++;
+    applyCmdFont();
+});
+
+// ── QUICK TOOLBAR BUTTONS ────────────────────────────────
+// Theme cycle
+document.getElementById('quickThemeBtn').addEventListener('click', async () => {
+    const idx = (THEMES.indexOf(currentTheme) + 1) % THEMES.length;
+    applyTheme(THEMES[idx]);
+    document.getElementById('quickThemeBtn').textContent = THEME_LABELS[THEMES[idx]];
+    const cfg = await window.scc.readConfig();
+    cfg.theme = THEMES[idx];
+    await window.scc.writeConfig(cfg);
+});
+
+// Color cycle (cycles through current theme's accent colors)
+let colorIdx = 0;
+document.getElementById('quickColorBtn').addEventListener('click', () => {
+    const colors = ACCENT_COLORS[currentTheme] || [];
+    if (!colors.length) return;
+    colorIdx = (colorIdx + 1) % colors.length;
+    applyAccentColor(colors[colorIdx]);
+    document.getElementById('quickColorBtn').textContent = colors[colorIdx].name;
+});
+
+// SFX toggle
+document.getElementById('quickSfxBtn').addEventListener('click', async () => {
+    soundEnabled = !soundEnabled;
+    appSettings.sounds = soundEnabled;
+    document.getElementById('quickSfxBtn').textContent = soundEnabled ? 'SFX' : 'MUTE';
+    document.getElementById('soundBtn').textContent = soundEnabled ? 'SFX ON' : 'SFX OFF';
+    await saveAppSettings();
 });
 
 // ── KEYBOARD ──────────────────────────────────────────────
@@ -668,6 +717,35 @@ document.getElementById('togglePanelsBtn').addEventListener('click', () => {
     document.querySelectorAll('.nano-side').forEach(el => {
         el.style.display = sidePanelsVisible ? '' : 'none';
     });
+});
+
+// ── BACKGROUND CYCLE ─────────────────────────────────────
+const BG_LIST = [
+    { file: null,                                    label: 'STARS' },
+    { file: 'dmt-bg.jpg',                           label: 'DMT' },
+    { file: 'backgrounds/falcon-cockpit-view.jpg',   label: 'FALCON VIEW' },
+    { file: 'backgrounds/falcon-cockpit-leak.webp',  label: 'FALCON INT' },
+    { file: 'backgrounds/falcon-controls.avif',      label: 'CONTROLS' },
+    { file: 'backgrounds/falcon-switches.avif',      label: 'SWITCHES' },
+    { file: 'backgrounds/falcon-panel-blue.avif',    label: 'BLUE PANEL' },
+    { file: 'backgrounds/falcon-panel-red.avif',     label: 'RED PANEL' },
+    { file: 'backgrounds/falcon-levers.avif',        label: 'LEVERS' },
+];
+let bgIdx = 0;
+document.getElementById('bgCycleBtn').addEventListener('click', () => {
+    bgIdx = (bgIdx + 1) % BG_LIST.length;
+    const bg = BG_LIST[bgIdx];
+    if (bg.file) {
+        const ap = window.scc.assetsPath;
+        document.body.style.backgroundImage = `url('file://${ap}/images/${bg.file}')`;
+        document.body.style.backgroundSize = 'cover';
+        document.body.style.backgroundPosition = 'center';
+    } else {
+        document.body.style.backgroundImage = '';
+        document.body.style.backgroundSize = '';
+        document.body.style.backgroundPosition = '';
+    }
+    document.getElementById('bgCycleBtn').textContent = bg.label;
 });
 
 document.addEventListener('keydown',e=>{
@@ -894,7 +972,28 @@ document.getElementById('guideModal').addEventListener('click', e => {
         document.getElementById('guideModal').classList.remove('show');
 });
 
-// ── COLOR SUBMENU ────────────────────────────────────────
+// ── COLOR SYSTEM ─────────────────────────────────────────
+// Parse hex to RGB, then derive all CSS variables from a single accent color
+function hexToRgb(hex) {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return {r,g,b};
+}
+function applyAccentColor(c) {
+    const {r,g,b} = hexToRgb(c.accent);
+    const root = document.documentElement.style;
+    root.setProperty('--accent', c.accent);
+    root.setProperty('--accent-glow', c.glow);
+    root.setProperty('--accent-dim', `rgba(${r},${g},${b},0.2)`);
+    root.setProperty('--accent-faint', `rgba(${r},${g},${b},0.07)`);
+    root.setProperty('--text', c.text);
+    const tr = hexToRgb(c.text);
+    root.setProperty('--text-dim', `rgba(${tr.r},${tr.g},${tr.b},0.55)`);
+    root.setProperty('--text-faint', `rgba(${tr.r},${tr.g},${tr.b},0.28)`);
+    root.setProperty('--glow', `0 0 18px rgba(${r},${g},${b},0.22)`);
+    root.setProperty('--snake-color', c.accent);
+    root.setProperty('--snake-glow', `rgba(${r},${g},${b},0.6)`);
+}
+
 const ACCENT_COLORS = {
     spaceship: [
         { name: 'CYAN',       accent: '#00ffff', glow: 'rgba(0,255,255,0.55)',   text: '#00e5ff' },
@@ -925,9 +1024,7 @@ function buildColorSubmenu() {
         btn.style.borderLeft = '3px solid ' + c.accent;
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
-            document.documentElement.style.setProperty('--accent', c.accent);
-            document.documentElement.style.setProperty('--accent-glow', c.glow);
-            document.documentElement.style.setProperty('--text', c.text);
+            applyAccentColor(c);
             sub.classList.remove('open');
             document.querySelectorAll('.tool-dropdown-menu').forEach(m => m.classList.remove('open'));
         });
@@ -969,6 +1066,9 @@ function closeModal(){
 })();
 
 // ── NANO ZONE ANIMATIONS (click to cycle, right-click to cycle background) ──
+// Registry: allows applyTheme to control panel modes externally
+const nanoControllers = {};
+
 const ANIM_MODES = ['panel', 'warp', 'cockpit', 'nebula', 'matrix', 'radar', 'fractal'];
 const ANIM_LABELS = { panel:'PANEL', warp:'WARP', cockpit:'COCKPIT', nebula:'NEBULA', matrix:'MATRIX', radar:'RADAR', fractal:'FRACTAL' };
 const customImages = {};
@@ -1001,6 +1101,20 @@ function createNanoAnimation(zoneId, modeLabel, startMode) {
     let mode = startMode;
     let t = 0;
     label.textContent = mode === 'panel' ? PANEL_BACKGROUNDS[zoneId === 'nanoLeft' ? 0 : 1].label : ANIM_LABELS[mode];
+
+    // Register external control so applyTheme can switch modes
+    nanoControllers[zoneId] = {
+        setMode(newMode) {
+            mode = newMode;
+            if (mode === 'panel') {
+                label.textContent = PANEL_BACKGROUNDS[bgIdx].label;
+            } else {
+                label.textContent = ANIM_LABELS[mode] || mode.toUpperCase();
+            }
+            ctx.clearRect(0,0,W,H);
+            initMode();
+        }
+    };
 
     zone.addEventListener('click', (e) => {
         if (e.button !== 0) return;
@@ -1427,7 +1541,7 @@ function createNanoAnimation(zoneId, modeLabel, startMode) {
 }
 
 createNanoAnimation('nanoLeft', 'nanoLeftMode', 'panel');
-createNanoAnimation('nanoRight', 'nanoRightMode', 'warp');
+createNanoAnimation('nanoRight', 'nanoRightMode', 'panel');
 
 // ── SESSION SAVE/RESTORE ─────────────────────────────────
 function saveSession() {
@@ -1466,7 +1580,10 @@ window.scc.onAppClosing(() => {
     const cfg = await window.scc.readConfig();
     currentConfig = cfg;
 
-    if (cfg.theme) applyTheme(cfg.theme);
+    if (cfg.theme) {
+        applyTheme(cfg.theme);
+        document.getElementById('quickThemeBtn').textContent = THEME_LABELS[cfg.theme] || 'THEME';
+    }
 
     // Restore appearance settings
     if (cfg.appearance) {
@@ -1552,9 +1669,50 @@ window.scc.onAppClosing(() => {
 // ── 777-MINUTE WARP DRIVE EASTER EGG ─────────────────────
 (() => {
     const TRIGGER_MS = 777 * 60 * 1000; // 777 minutes
-    let warpTriggered = false;
+    const IDLE_LIMIT = 60 * 60 * 1000;  // 1 hour mouse idle resets streak
+    const HEARTBEAT  = 30 * 1000;       // check every 30s for sleep gaps
+    const SLEEP_GAP  = 60 * 1000;       // >60s gap between heartbeats = sleep
 
-    setTimeout(() => {
+    let warpTriggered = false;
+    let activeMs = 0;
+    let lastHeartbeat = Date.now();
+    let lastMouseMove = Date.now();
+    let idleReset = false;
+
+    // Track mouse activity
+    document.addEventListener('mousemove', () => { lastMouseMove = Date.now(); idleReset = false; });
+
+    // Heartbeat: accumulate active time, detect sleep gaps and mouse idle
+    const hbInterval = setInterval(() => {
+        if (warpTriggered) { clearInterval(hbInterval); return; }
+
+        const now = Date.now();
+        const gap = now - lastHeartbeat;
+        lastHeartbeat = now;
+
+        // Sleep detected: gap too large, reset streak
+        if (gap > SLEEP_GAP) {
+            activeMs = 0;
+            return;
+        }
+
+        // Mouse idle > 1 hour: reset streak (once, until mouse moves again)
+        if (now - lastMouseMove > IDLE_LIMIT) {
+            if (!idleReset) { activeMs = 0; idleReset = true; }
+            return;
+        }
+
+        // Accumulate active time
+        activeMs += gap;
+
+        // Check if we hit 777 minutes
+        if (activeMs >= TRIGGER_MS) {
+            clearInterval(hbInterval);
+            triggerWarp();
+        }
+    }, HEARTBEAT);
+
+    function triggerWarp() {
         if (warpTriggered) return;
         warpTriggered = true;
 
@@ -1583,22 +1741,26 @@ window.scc.onAppClosing(() => {
             z:Math.random()*W, pz:0
         }));
 
-        const DURATION = 17000;   // 17 seconds total (12s sound + 5s title hold)
+        const DURATION = 25000;   // 25 seconds total
         const MSG_IN   = 3000;    // text appears at 3s
-        const MSG_OUT  = 15500;   // text fades at 15.5s
-        const FADE_MS  = 500;     // fade in/out duration
+        const MSG_OUT  = 23000;   // text fades at 23s (20s of text visible)
+        const FADE_MS  = 800;     // fade in/out duration
         const startTime = performance.now();
+
+        // Text zoom: starts at 0.6x scale, slowly grows to 1.4x over the text duration
+        const ZOOM_START = 0.6;
+        const ZOOM_END   = 1.4;
 
         function warpFrame(now) {
             const elapsed = now - startTime;
             const progress = elapsed / DURATION; // 0..1
 
-            // After 10s, fade to black for quiet title reading
-            const fadePhase = elapsed > 10000 ? Math.min(1, (elapsed - 10000) / 2000) : 0;
+            // After 14s, fade to black for quiet title reading
+            const fadePhase = elapsed > 14000 ? Math.min(1, (elapsed - 14000) / 3000) : 0;
             ctx.fillStyle = elapsed < 300 ? '#000' : `rgba(0,0,8,${0.15 + 0.1*Math.sin(elapsed*0.006) + fadePhase*0.6})`;
             ctx.fillRect(0,0,W,H);
 
-            // Accelerating stars (fade out after 10s)
+            // Accelerating stars (fade out after 14s)
             const starAlpha = 1 - fadePhase;
             if (starAlpha > 0.01) {
                 const speed = 5 + progress * 40;
@@ -1615,35 +1777,42 @@ window.scc.onAppClosing(() => {
                 });
             }
 
-            // Central flash + text
+            // Central flash + text with slow zoom
             if (elapsed > MSG_IN && elapsed < MSG_OUT) {
+                const textProgress = (elapsed - MSG_IN) / (MSG_OUT - MSG_IN); // 0..1 over text lifetime
+                const zoom = ZOOM_START + textProgress * (ZOOM_END - ZOOM_START);
+
                 const pulse = 0.5 + 0.3*Math.sin(elapsed*0.009);
-                const glow = ctx.createRadialGradient(CX,CY,0,CX,CY,200);
+                const glowR = 200 * zoom;
+                const glow = ctx.createRadialGradient(CX,CY,0,CX,CY,glowR);
                 glow.addColorStop(0, `rgba(0,200,255,${pulse*0.25})`);
                 glow.addColorStop(1, 'transparent');
-                ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(CX,CY,200,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(CX,CY,glowR,0,Math.PI*2); ctx.fill();
 
                 const tAlpha = elapsed < MSG_IN+FADE_MS ? (elapsed-MSG_IN)/FADE_MS
                              : elapsed > MSG_OUT-FADE_MS ? (MSG_OUT-elapsed)/FADE_MS : 1;
+
                 ctx.save();
+                ctx.translate(CX, CY);
+                ctx.scale(zoom, zoom);
                 ctx.textAlign = 'center';
                 ctx.shadowColor = '#0ff'; ctx.shadowBlur = 30;
 
                 ctx.font = 'bold 28px "Orbitron", monospace';
                 ctx.fillStyle = `rgba(0,255,255,${tAlpha})`;
-                ctx.fillText('WARPSPEED UNLOCKED', CX, CY - 40);
+                ctx.fillText('WARPSPEED UNLOCKED', 0, -40);
 
                 ctx.font = 'bold 16px "Orbitron", monospace';
                 ctx.fillStyle = `rgba(255,220,100,${tAlpha*0.9})`;
-                ctx.fillText('DEV MANIA INITIATED', CX, CY - 5);
+                ctx.fillText('DEV MANIA INITIATED', 0, -5);
 
                 ctx.font = 'bold 13px "Orbitron", monospace';
                 ctx.fillStyle = `rgba(0,255,180,${tAlpha*0.85})`;
-                ctx.fillText('DRINK WATER \u2022 HAVE FOOD \u2022 10 PUSH-UPS!', CX, CY + 30);
+                ctx.fillText('DRINK WATER \u2022 HAVE FOOD \u2022 10 PUSH-UPS!', 0, 30);
 
                 ctx.font = '10px "Orbitron", monospace';
                 ctx.fillStyle = `rgba(180,220,255,${tAlpha*0.5})`;
-                ctx.fillText('777 MINUTES OF PURE FOCUS', CX, CY + 60);
+                ctx.fillText('777 MINUTES OF PURE FOCUS', 0, 60);
 
                 ctx.restore();
             }
@@ -1657,9 +1826,20 @@ window.scc.onAppClosing(() => {
             }
         }
 
-        // Play the 12s buildup sound
-        playSound('warp-unlock.wav', 0.9);
+        // Force sound even if SFX is toggled off (this is a reward)
+        try {
+            const audio = new Audio(`file://${window.scc.assetsPath}/sounds/warp-unlock.wav`);
+            audio.volume = 0.9;
+            audio.play().catch(() => {});
+        } catch (_) {}
         requestAnimationFrame(warpFrame);
+    }
 
-    }, TRIGGER_MS);
+    // Test trigger: Ctrl+Shift+7 fires the easter egg immediately
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.shiftKey && e.key === '7') {
+            e.preventDefault();
+            triggerWarp();
+        }
+    });
 })();

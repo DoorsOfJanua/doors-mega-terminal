@@ -334,9 +334,8 @@
          * Left and right zones are transparent — image shows through.
          */
         #cmdContent {
-            display: flex; height: 200px;
+            width: 100%; display: flex; height: 200px;
             background: transparent;
-            border-top: 1px solid var(--accent-faint);
         }
 
         /* NANOBANANA ZONES */
@@ -345,9 +344,12 @@
             position: relative; overflow: hidden;
             background-color: var(--panel-bg);
             background-size: cover;
-            background-position: top;
             background-repeat: no-repeat;
         }
+        /* Left panel: show top-right of image (edge touching center) */
+        #nanoLeft { background-position: right top; }
+        /* Right panel: show top-left of image (edge touching center) */
+        #nanoRight { background-position: left top; }
 
         .nano-label { display: none; }
         .nano-side { cursor: pointer; }
@@ -361,13 +363,14 @@
         .nano-side:hover .nano-mode-label { opacity: 1; }
 
         /* CENTER LEDGER — solid background so cockpit image doesn't bleed through */
-        #cmdCenter { flex: 1; display: flex; flex-direction: column; background: var(--panel-bg); }
+        #cmdCenter { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--panel-bg); }
 
         #cmdCenterTop {
             height: 30px; min-height: 30px;
             display: flex; align-items: center;
             padding: 0 10px; gap: 8px;
             border-bottom: 1px solid var(--accent-faint); flex-shrink: 0;
+            overflow-x: auto; overflow-y: hidden;
         }
 
         #cmdCenterTitle { color: var(--text-faint); font-size: 8px; letter-spacing: 3px; }
@@ -688,8 +691,12 @@
                     <button class="tool-btn primary" id="addBtn">+ ADD</button>
                     <button class="tool-btn" id="tileBtn">TILE</button>
                     <button class="tool-btn" id="togglePanelsBtn" title="Toggle side panels">◧</button>
-                    <button class="tool-btn" id="cmdFontDn" title="Smaller text">−</button>
-                    <button class="tool-btn" id="cmdFontUp" title="Bigger text">+</button>
+                    <button class="tool-btn" id="bgCycleBtn" title="Cycle background">BG</button>
+                    <button class="tool-btn" id="quickThemeBtn" title="Cycle theme">THEME</button>
+                    <button class="tool-btn" id="quickColorBtn" title="Cycle accent color">COLOR</button>
+                    <button class="tool-btn" id="quickSfxBtn" title="Toggle sounds">SFX</button>
+                    <button class="tool-btn" id="cmdFontDn" title="Zoom out">−</button>
+                    <button class="tool-btn" id="cmdFontUp" title="Zoom in">+</button>
                     <div class="tool-dropdown">
                         <button class="tool-btn" id="settingsMenuBtn">SETTINGS ▾</button>
                         <div class="tool-dropdown-menu" id="settingsMenu">

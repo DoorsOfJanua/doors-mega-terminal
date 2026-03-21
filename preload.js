@@ -14,8 +14,10 @@ contextBridge.exposeInMainWorld('scc', {
   writeConfig:     (cfg) => ipcRenderer.invoke('config:write', cfg),
   onConfigChanged: (cb)  => ipcRenderer.on('config:changed', (_e, cfg) => cb(cfg)),
 
-  // Assets
-  assetsPath: path.join(__dirname, 'assets'),
+  // Assets — extraResources in packaged app, project root in dev
+  assetsPath: __dirname.includes('app.asar')
+    ? path.join(process.resourcesPath, 'assets')
+    : path.join(__dirname, 'assets'),
 
   // Dialogs
   pickFolder: () => ipcRenderer.invoke('dialog:pick-folder'),
