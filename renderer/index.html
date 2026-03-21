@@ -2,20 +2,21 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Spaceship Command Center</title>
+    <title>Doors Mega Terminal</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
-        /* === THEME SYSTEM === */
+        /* === THEME SYSTEM: 3 MODES === */
+
+        /* ── SPACESHIP (default) ── Star Wars cockpit, cyan glow, starfield */
         body {
-            /* cyan-cockpit (default) */
             --accent:       #00ffff;
             --accent-glow:  rgba(0,255,255,0.55);
             --accent-dim:   rgba(0,255,255,0.2);
             --accent-faint: rgba(0,255,255,0.07);
             --bg:           #000000;
-            --panel-bg:     rgba(0,10,22,0.85);
+            --panel-bg:     rgb(0,10,22);
             --panel-border: rgba(0,255,255,0.18);
             --text:         #00e5ff;
             --text-dim:     rgba(0,220,255,0.55);
@@ -23,66 +24,69 @@
             --glow:         0 0 18px rgba(0,255,255,0.22);
             --snake-color:  #00ffff;
             --snake-glow:   rgba(0,255,255,0.6);
+            --font-mono:    'SF Mono', 'Menlo', 'Courier New', monospace;
+            --font-ui:      'Orbitron', 'Arial Black', sans-serif;
         }
 
-        body.theme-amber {
-            --accent:       #ffaa00;
-            --accent-glow:  rgba(255,170,0,0.55);
-            --accent-dim:   rgba(255,170,0,0.22);
-            --accent-faint: rgba(255,170,0,0.07);
-            --bg:           #0d0800;
-            --panel-bg:     rgba(20,10,0,0.88);
-            --panel-border: rgba(255,170,0,0.2);
-            --text:         #ffcc44;
-            --text-dim:     rgba(255,180,0,0.55);
-            --text-faint:   rgba(255,150,0,0.28);
-            --glow:         0 0 18px rgba(255,170,0,0.22);
-            --snake-color:  #ffaa00;
-            --snake-glow:   rgba(255,170,0,0.65);
-        }
-
-        body.theme-solarized {
-            --accent:       #268bd2;
-            --accent-glow:  rgba(38,139,210,0.55);
-            --accent-dim:   rgba(38,139,210,0.22);
-            --accent-faint: rgba(38,139,210,0.07);
-            --bg:           #002b36;
-            --panel-bg:     rgba(0,43,54,0.92);
-            --panel-border: rgba(38,139,210,0.22);
-            --text:         #93a1a1;
-            --text-dim:     rgba(147,161,161,0.6);
-            --text-faint:   rgba(131,148,150,0.35);
-            --glow:         0 0 18px rgba(38,139,210,0.2);
-            --snake-color:  #2aa198;
-            --snake-glow:   rgba(42,161,152,0.65);
-        }
-
-        body.theme-native {
+        /* ── CLASSIC ── real terminal look, auto day/night, no effects */
+        body.theme-classic {
+            --font-ui:      'SF Mono', 'Menlo', 'Courier New', monospace;
             --accent:       #007aff;
-            --accent-glow:  rgba(0,122,255,0.5);
-            --accent-dim:   rgba(0,122,255,0.2);
-            --accent-faint: rgba(0,122,255,0.07);
+            --accent-glow:  rgba(0,122,255,0.4);
+            --accent-dim:   rgba(0,122,255,0.15);
+            --accent-faint: rgba(0,122,255,0.05);
             --bg:           #1c1c1e;
-            --panel-bg:     rgba(44,44,46,0.92);
-            --panel-border: rgba(0,122,255,0.2);
+            --panel-bg:     rgb(28,28,30);
+            --panel-border: rgba(255,255,255,0.1);
             --text:         #f2f2f7;
             --text-dim:     rgba(174,174,178,0.8);
-            --text-faint:   rgba(174,174,178,0.4);
-            --glow:         0 0 18px rgba(0,122,255,0.18);
+            --text-faint:   rgba(174,174,178,0.35);
+            --glow:         none;
             --snake-color:  #30d158;
-            --snake-glow:   rgba(48,209,88,0.6);
+            --snake-glow:   rgba(48,209,88,0.5);
         }
 
+        /* Classic: light mode (daytime) */
         @media (prefers-color-scheme: light) {
-            body.theme-native {
-                --bg:           #f2f2f7;
-                --panel-bg:     rgba(255,255,255,0.92);
-                --panel-border: rgba(0,122,255,0.25);
+            body.theme-classic {
+                --bg:           #f5f5f7;
+                --panel-bg:     rgb(255,255,255);
+                --panel-border: rgba(0,0,0,0.12);
                 --text:         #1c1c1e;
                 --text-dim:     rgba(60,60,67,0.6);
-                --text-faint:   rgba(60,60,67,0.3);
-                --glow:         0 0 18px rgba(0,122,255,0.12);
+                --text-faint:   rgba(60,60,67,0.25);
+                --accent:       #007aff;
+                --accent-dim:   rgba(0,122,255,0.12);
+                --accent-faint: rgba(0,122,255,0.04);
+                --snake-color:  #34c759;
+                --snake-glow:   rgba(52,199,89,0.45);
             }
+            body.theme-classic .nano-side { background-color: #f5f5f7; }
+        }
+
+        body.theme-classic .panel { box-shadow: 0 1px 6px rgba(0,0,0,0.15); border-radius: 8px; }
+        body.theme-classic .panel-header { border-bottom: 1px solid var(--panel-border); border-radius: 8px 8px 0 0; }
+        body.theme-classic canvas#stars { display: none; }
+        body.theme-classic .nano-side { background-color: #1c1c1e; }
+        body.theme-classic .nano-side canvas { opacity: 0.08; }
+        body.theme-classic #cmdBar { border-top: 1px solid var(--panel-border); }
+        body.theme-classic::after { display: none; }
+
+        /* ── HYPERSPACE (DMT) ── psychedelic, deep, the signature mode */
+        body.theme-hyperspace {
+            --accent:       #ff00ff;
+            --accent-glow:  rgba(255,0,255,0.55);
+            --accent-dim:   rgba(255,0,255,0.22);
+            --accent-faint: rgba(255,0,255,0.08);
+            --bg:           #05000a;
+            --panel-bg:     rgb(15,0,25);
+            --panel-border: rgba(255,0,255,0.2);
+            --text:         #e8b0ff;
+            --text-dim:     rgba(200,140,255,0.65);
+            --text-faint:   rgba(180,100,255,0.3);
+            --glow:         0 0 24px rgba(255,0,255,0.25);
+            --snake-color:  #ff00ff;
+            --snake-glow:   rgba(255,0,255,0.7);
         }
 
         /* === SNAKE BORDER ANIMATION === */
@@ -92,8 +96,13 @@
             initial-value: 0deg;
         }
 
-        /* Running state: snake light traveling around border */
+        /* Running state: plain border, no animation */
         .panel[data-snake="running"] {
+            /* normal panel border, nothing special */
+        }
+
+        /* Done state: snake light traveling around border to signal task completion */
+        .panel[data-snake="done"] {
             --snake-angle: 0deg;
             border: 1px solid transparent !important;
             background-image:
@@ -109,28 +118,17 @@
             background-origin: border-box;
             background-clip: padding-box, border-box;
             animation: snake-run 2.5s linear infinite;
+            box-shadow: 0 0 8px var(--snake-glow);
         }
 
         @keyframes snake-run {
             to { --snake-angle: 360deg; }
         }
 
-        /* Done state: solid pulsing glow border */
-        .panel[data-snake="done"] {
-            border: 1px solid var(--snake-color) !important;
-            box-shadow: 0 0 6px var(--snake-glow), 0 0 2px var(--snake-color) inset !important;
-            animation: done-pulse 2.2s ease-in-out infinite;
-        }
-
-        @keyframes done-pulse {
-            0%, 100% { box-shadow: 0 0 5px var(--snake-glow); }
-            50%       { box-shadow: 0 0 14px var(--snake-glow), 0 0 28px var(--accent-dim); }
-        }
-
         body {
             width: 100vw; height: 100vh;
             background: var(--bg);
-            font-family: 'Orbitron', 'Arial Black', sans-serif;
+            font-family: var(--font-ui);
             overflow: hidden;
             user-select: none;
         }
@@ -140,6 +138,8 @@
             background: repeating-linear-gradient(to bottom, transparent, transparent 3px, rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px);
             pointer-events: none; z-index: 9999;
         }
+        body.no-scanlines::after { display: none; }
+        body.no-snake .panel[data-snake="done"] { animation: none; background-image: none; border: 1px solid var(--panel-border) !important; box-shadow: none; }
 
         canvas#stars { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
 
@@ -215,7 +215,7 @@
             display: block; width: 100%;
             padding: 6px 14px; text-align: left;
             background: transparent; border: none;
-            font-family: 'Orbitron', sans-serif; font-size: 8px;
+            font-family: var(--font-ui); font-size: 8px;
             letter-spacing: 1px; cursor: pointer;
             transition: background 0.1s;
             border-bottom: 1px solid var(--accent-faint);
@@ -302,7 +302,7 @@
             border-bottom: 1px solid var(--accent-dim);
         }
 
-        /* ── COMMAND CENTER — fixed bottom ────────────────────── */
+        /* ── COMMAND CENTER — fixed BOTTOM ─────────────────────── */
         #cmdBar {
             position: fixed; bottom: 0; left: 0; right: 0;
             z-index: 400; display: flex; flex-direction: column;
@@ -343,7 +343,7 @@
             width: 520px; flex-shrink: 0;
             position: relative; overflow: hidden;
             background-size: cover;
-            background-position: center;
+            background-position: top;
             background-repeat: no-repeat;
         }
 
@@ -359,7 +359,7 @@
         .nano-side:hover .nano-mode-label { opacity: 1; }
 
         /* CENTER LEDGER — solid background so cockpit image doesn't bleed through */
-        #cmdCenter { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--panel-bg); }
+        #cmdCenter { flex: 1; display: flex; flex-direction: column; background: var(--panel-bg); }
 
         #cmdCenterTop {
             height: 30px; min-height: 30px;
@@ -370,16 +370,54 @@
 
         #cmdCenterTitle { color: var(--text-faint); font-size: 8px; letter-spacing: 3px; }
 
+        #workspaceTabs {
+            display: flex; gap: 2px; align-items: center; overflow-x: auto; margin-right: 8px;
+        }
+        .ws-tab {
+            font-size: 7px; letter-spacing: 1.5px; padding: 3px 10px;
+            color: var(--text-dim); background: transparent;
+            border: 1px solid transparent; border-radius: 2px;
+            cursor: pointer; white-space: nowrap;
+            font-family: var(--font-ui); transition: all 0.15s;
+        }
+        .ws-tab:hover { border-color: var(--accent-dim); color: var(--text); }
+        .ws-tab.active { border-color: var(--accent); color: var(--accent); background: var(--accent-faint); }
+        .ws-tab-add {
+            font-size: 9px; padding: 2px 6px; color: var(--text-faint);
+            background: transparent; border: 1px dashed var(--accent-dim);
+            border-radius: 2px; cursor: pointer; font-family: var(--font-ui);
+        }
+        .ws-tab-add:hover { color: var(--accent); border-color: var(--accent); }
         .cmd-tools { display: flex; gap: 5px; align-items: center; margin-left: auto; }
 
         .tool-btn {
             padding: 2px 7px; background: transparent;
             border: 1px solid var(--accent-faint); color: var(--text-dim);
-            font-family: 'Orbitron', sans-serif; font-size: 7px; letter-spacing: 1px;
+            font-family: var(--font-ui); font-size: 7px; letter-spacing: 1px;
             cursor: pointer; border-radius: 2px; transition: all 0.12s;
         }
 
         .tool-btn:hover { background: var(--accent-faint); color: var(--accent); border-color: var(--accent-dim); }
+        .tool-btn.primary { border-color: var(--accent-dim); color: var(--accent); }
+
+        /* ── DROPDOWN MENUS ── */
+        .tool-dropdown { position: relative; }
+        .tool-dropdown-menu {
+            display: none; position: absolute; bottom: calc(100% + 6px); right: 0;
+            background: var(--panel-bg); border: 1px solid var(--panel-border);
+            border-radius: 3px; padding: 3px 0; min-width: 110px;
+            box-shadow: 0 -4px 16px rgba(0,0,0,0.4); z-index: 600;
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        }
+        .tool-dropdown-menu.open { display: block; }
+        .tdm-item {
+            display: block; width: 100%; padding: 5px 12px; text-align: left;
+            background: transparent; border: none; color: var(--text-dim);
+            font-family: var(--font-ui); font-size: 7px; letter-spacing: 1.5px;
+            cursor: pointer; transition: all 0.1s; white-space: nowrap;
+        }
+        .tdm-item:hover { background: var(--accent-faint); color: var(--accent); }
+        .tdm-sep { height: 1px; background: var(--accent-faint); margin: 3px 8px; }
 
         .cmd-body { flex: 1; padding: 7px 10px 10px; overflow-y: auto; }
         .cmd-body::-webkit-scrollbar { width: 3px; }
@@ -414,7 +452,7 @@
         .lr-model-btn {
             padding: 2px 7px; border-radius: 2px;
             background: transparent; cursor: pointer;
-            font-family: 'Orbitron', sans-serif; font-size: 7px; letter-spacing: 1px;
+            font-family: var(--font-ui); font-size: 7px; letter-spacing: 1px;
             border: 1px solid transparent; transition: all 0.12s;
         }
 
@@ -428,7 +466,7 @@
         .la-btn {
             padding: 2px 5px; background: transparent;
             border: 1px solid var(--accent-faint); color: var(--text-dim);
-            font-family: 'Orbitron', sans-serif; font-size: 7px; letter-spacing: 1px;
+            font-family: var(--font-ui); font-size: 7px; letter-spacing: 1px;
             cursor: pointer; border-radius: 2px; transition: all 0.12s;
         }
 
@@ -459,7 +497,7 @@
             width: 100%; padding: 7px 9px;
             background: var(--accent-faint);
             border: 1px solid var(--accent-dim); border-radius: 2px;
-            color: var(--accent); font-family: 'Orbitron', sans-serif;
+            color: var(--accent); font-family: var(--font-ui);
             font-size: 10px; outline: none; transition: border-color 0.14s;
         }
 
@@ -467,11 +505,78 @@
         .m-input:focus, .m-select:focus { border-color: var(--accent-glow); }
 
         .m-btns { display: flex; gap: 8px; margin-top: 16px; }
-        .m-btn { flex: 1; padding: 8px; border-radius: 2px; font-family: 'Orbitron', sans-serif; font-size: 9px; cursor: pointer; letter-spacing: 1px; transition: all 0.14s; }
+        .m-btn { flex: 1; padding: 8px; border-radius: 2px; font-family: var(--font-ui); font-size: 9px; cursor: pointer; letter-spacing: 1px; transition: all 0.14s; }
         .m-btn.ok     { background: var(--accent-faint); border: 1px solid var(--accent-dim); color: var(--accent); }
         .m-btn.ok:hover { background: var(--accent-dim); }
         .m-btn.cancel { background: transparent; border: 1px solid rgba(255,0,0,0.2); color: rgba(255,70,70,0.6); }
         .m-btn.cancel:hover { background: rgba(255,0,0,0.07); }
+
+        /* APPEARANCE MODAL */
+        #appearanceModal {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.75); z-index: 600;
+            align-items: center; justify-content: center;
+        }
+        #appearanceModal.show { display: flex; }
+
+        .app-box {
+            background: var(--panel-bg);
+            border: 1px solid var(--accent-dim); border-radius: 3px;
+            padding: 22px 28px; width: 480px; max-height: 80vh; overflow-y: auto;
+            box-shadow: 0 0 60px var(--accent-faint);
+        }
+        .app-box::-webkit-scrollbar { width: 4px; }
+        .app-box::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 2px; }
+
+        .app-section {
+            color: var(--text-faint); font-size: 7px; letter-spacing: 3px;
+            margin: 16px 0 10px; border-bottom: 1px solid var(--accent-faint); padding-bottom: 5px;
+        }
+        .app-section:first-of-type { margin-top: 0; }
+
+        .app-row {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 10px; gap: 12px;
+        }
+        .app-label {
+            color: var(--text-dim); font-size: 9px; letter-spacing: 0.5px;
+        }
+
+        .app-theme-btns { display: flex; gap: 6px; }
+        .app-theme-btn {
+            padding: 6px 14px; background: transparent;
+            border: 1px solid var(--accent-dim); color: var(--text-dim);
+            font-family: var(--font-ui); font-size: 8px; letter-spacing: 1.5px;
+            cursor: pointer; border-radius: 3px; transition: all 0.15s;
+        }
+        .app-theme-btn:hover { border-color: var(--accent); color: var(--text); }
+        .app-theme-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-faint); }
+
+        .app-select {
+            background: var(--accent-faint); border: 1px solid var(--accent-dim);
+            color: var(--text); font-family: var(--font-ui); font-size: 8px;
+            padding: 4px 8px; border-radius: 2px; cursor: pointer;
+        }
+        .app-select option { background: #111; color: #eee; }
+
+        .app-toggle {
+            position: relative; width: 36px; height: 18px;
+            background: var(--accent-faint); border: 1px solid var(--accent-dim);
+            border-radius: 9px; cursor: pointer; transition: all 0.2s; flex-shrink: 0;
+        }
+        .app-toggle.on { background: var(--accent-dim); border-color: var(--accent); }
+        .app-toggle::after {
+            content: ''; position: absolute; top: 2px; left: 2px;
+            width: 12px; height: 12px; border-radius: 50%;
+            background: var(--text-dim); transition: all 0.2s;
+        }
+        .app-toggle.on::after { left: 20px; background: var(--accent); }
+
+        .app-preview {
+            height: 32px; border-radius: 3px; border: 1px solid var(--accent-dim);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 9px; margin-top: 4px; transition: all 0.2s;
+        }
 
         /* SHORTCUTS MODAL */
         #shortcutsModal {
@@ -484,13 +589,17 @@
         .sbox {
             background: var(--panel-bg);
             border: 1px solid var(--accent-dim); border-radius: 3px;
-            padding: 22px 26px; width: 780px; max-height: 80vh; overflow-y: auto;
+            padding: 22px 26px; width: 820px; max-height: 85vh; overflow-y: auto;
             box-shadow: 0 0 60px var(--accent-faint);
         }
+        .sbox::-webkit-scrollbar { width: 4px; }
+        .sbox::-webkit-scrollbar-track { background: transparent; }
+        .sbox::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 2px; }
+        .sbox::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
         .s-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
         .s-header .m-title { margin-bottom: 0; }
-        .s-close { background: transparent; border: 1px solid rgba(255,70,70,0.3); color: rgba(255,70,70,0.6); cursor: pointer; font-size: 10px; padding: 3px 8px; border-radius: 2px; font-family: 'Orbitron', sans-serif; }
+        .s-close { background: transparent; border: 1px solid rgba(255,70,70,0.3); color: rgba(255,70,70,0.6); cursor: pointer; font-size: 10px; padding: 3px 8px; border-radius: 2px; font-family: var(--font-ui); }
         .s-close:hover { background: rgba(255,0,0,0.1); }
 
         .s-cols { display: flex; gap: 32px; }
@@ -504,12 +613,20 @@
 
         .s-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 7px; }
         .s-key {
-            flex-shrink: 0; min-width: 110px;
+            flex-shrink: 0; min-width: 120px;
             background: var(--accent-faint); border: 1px solid var(--accent-dim);
             border-radius: 2px; padding: 2px 7px;
             color: var(--accent); font-size: 8px; letter-spacing: 0.5px; text-align: center;
         }
         .s-desc { color: var(--text-dim); font-size: 9px; letter-spacing: 0.3px; }
+
+        .s-tip {
+            color: var(--text-dim); font-size: 8px; line-height: 1.8; letter-spacing: 0.3px;
+            padding: 6px 10px; margin-bottom: 6px;
+            background: var(--accent-faint); border-radius: 2px;
+            border-left: 2px solid var(--accent-dim);
+        }
+        .s-tip strong { color: var(--accent); font-weight: 700; }
 
         #hint {
             position: fixed; bottom: 9px; right: 11px;
@@ -535,7 +652,7 @@
 
 <div id="cmdBar">
     <div id="cmdHandle">
-        <span class="ch-title">⚡ COMMAND CENTER</span>
+        <span class="ch-title">⚡ DMT COMMAND CENTER</span>
         <span class="ch-hint">SPACE TO TOGGLE</span>
         <span class="ch-arrow">▲</span>
     </div>
@@ -543,14 +660,25 @@
         <div class="nano-side" id="nanoLeft"><div class="nano-label">NANOBANANA<br>ZONE</div><div class="nano-mode-label" id="nanoLeftMode"></div></div>
         <div id="cmdCenter">
             <div id="cmdCenterTop">
-                <div id="cmdCenterTitle">PROJECTS</div>
+                <div id="workspaceTabs"></div>
                 <div class="cmd-tools">
-                    <button class="tool-btn" id="addBtn">+ ADD PROJECT</button>
-                    <button class="tool-btn" id="tileBtn">TILE ALL</button>
-                    <button class="tool-btn" id="shortcutsBtn">⌨ SHORTCUTS</button>
-                    <button class="tool-btn" id="aboutBtn">ABOUT</button>
-                    <button class="tool-btn" id="themeBtn">THEME</button>
-                    <button class="tool-btn" id="soundBtn">SFX ON</button>
+                    <button class="tool-btn primary" id="addBtn">+ ADD</button>
+                    <button class="tool-btn" id="tileBtn">TILE</button>
+                    <div class="tool-dropdown">
+                        <button class="tool-btn" id="viewMenuBtn">VIEW ▾</button>
+                        <div class="tool-dropdown-menu" id="viewMenu">
+                            <button class="tdm-item" id="themeBtn">THEME</button>
+                        </div>
+                    </div>
+                    <div class="tool-dropdown">
+                        <button class="tool-btn" id="settingsMenuBtn">⚙</button>
+                        <div class="tool-dropdown-menu" id="settingsMenu">
+                            <button class="tdm-item" id="appearanceBtn">APPEARANCE</button>
+                            <button class="tdm-item" id="soundBtn">SFX ON</button>
+                            <button class="tdm-item" id="shortcutsBtn">SHORTCUTS</button>
+                            <button class="tdm-item" id="aboutBtn">ABOUT</button>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="cmd-body" id="ledger"></div>
@@ -587,51 +715,179 @@
 <div id="shortcutsModal">
     <div class="sbox">
         <div class="s-header">
-            <div class="m-title">SHORTCUTS</div>
+            <div class="m-title">SHORTCUTS, TIPS &amp; TRICKS</div>
             <button class="s-close" id="shortcutsClose">✕</button>
         </div>
         <div class="s-cols">
             <div class="s-col">
-                <div class="s-section">COMMAND CENTER</div>
+                <div class="s-section">DMT COMMAND CENTER</div>
                 <div class="s-row"><span class="s-key">SPACE</span><span class="s-desc">Toggle command center</span></div>
-                <div class="s-row"><span class="s-key">DBL-CLICK</span><span class="s-desc">Fullscreen window</span></div>
+                <div class="s-row"><span class="s-key">DBL-CLICK header</span><span class="s-desc">Fullscreen window</span></div>
                 <div class="s-row"><span class="s-key">ESC</span><span class="s-desc">Exit fullscreen</span></div>
-                <div class="s-row"><span class="s-key">DRAG corner</span><span class="s-desc">Resize window</span></div>
+                <div class="s-row"><span class="s-key">DRAG corner/edge</span><span class="s-desc">Resize window freely</span></div>
                 <div class="s-row"><span class="s-key">DRAG header</span><span class="s-desc">Move window</span></div>
-                <div class="s-row"><span class="s-key">Click model</span><span class="s-desc">Switch Haiku / Sonnet / Opus</span></div>
+                <div class="s-row"><span class="s-key">Click model badge</span><span class="s-desc">Switch Haiku / Sonnet / Opus</span></div>
+                <div class="s-row"><span class="s-key">+ / − buttons</span><span class="s-desc">Per-window font size</span></div>
+                <div class="s-row"><span class="s-key">TILE button</span><span class="s-desc">Auto-arrange all windows</span></div>
+                <div class="s-row"><span class="s-key">Click side panel</span><span class="s-desc">Cycle animation mode</span></div>
+                <div class="s-row"><span class="s-key">Right-click panel</span><span class="s-desc">Cycle background image</span></div>
+                <div class="s-row"><span class="s-key">DBL-CLICK tab</span><span class="s-desc">Rename workspace</span></div>
+                <div class="s-row"><span class="s-key">Right-click tab</span><span class="s-desc">Delete workspace</span></div>
 
-                <div class="s-section">TERMINAL</div>
+                <div class="s-section">TERMINAL BASICS</div>
                 <div class="s-row"><span class="s-key">Ctrl + C</span><span class="s-desc">Kill running process</span></div>
                 <div class="s-row"><span class="s-key">Ctrl + L</span><span class="s-desc">Clear screen</span></div>
                 <div class="s-row"><span class="s-key">Ctrl + R</span><span class="s-desc">Search command history</span></div>
-                <div class="s-row"><span class="s-key">Ctrl + A</span><span class="s-desc">Jump to start of line</span></div>
-                <div class="s-row"><span class="s-key">Ctrl + E</span><span class="s-desc">Jump to end of line</span></div>
+                <div class="s-row"><span class="s-key">Ctrl + A / E</span><span class="s-desc">Jump to start / end of line</span></div>
                 <div class="s-row"><span class="s-key">Ctrl + U</span><span class="s-desc">Clear current line</span></div>
                 <div class="s-row"><span class="s-key">Ctrl + W</span><span class="s-desc">Delete last word</span></div>
                 <div class="s-row"><span class="s-key">Ctrl + Z</span><span class="s-desc">Suspend process (fg to resume)</span></div>
+                <div class="s-row"><span class="s-key">Ctrl + D</span><span class="s-desc">Exit shell / send EOF</span></div>
+                <div class="s-row"><span class="s-key">Tab</span><span class="s-desc">Autocomplete path or command</span></div>
+                <div class="s-row"><span class="s-key">Tab Tab</span><span class="s-desc">Show all completions</span></div>
                 <div class="s-row"><span class="s-key">!!</span><span class="s-desc">Repeat last command</span></div>
+                <div class="s-row"><span class="s-key">!$</span><span class="s-desc">Last argument of previous cmd</span></div>
                 <div class="s-row"><span class="s-key">cd -</span><span class="s-desc">Jump to previous directory</span></div>
+
+                <div class="s-section">GIT WORKFLOW</div>
+                <div class="s-row"><span class="s-key">git diff --stat</span><span class="s-desc">Quick change summary</span></div>
+                <div class="s-row"><span class="s-key">git stash</span><span class="s-desc">Stash dirty state fast</span></div>
+                <div class="s-row"><span class="s-key">git log --oneline -20</span><span class="s-desc">Compact recent history</span></div>
+                <div class="s-row"><span class="s-key">git checkout -</span><span class="s-desc">Switch to last branch</span></div>
+                <div class="s-row"><span class="s-key">git commit --amend</span><span class="s-desc">Fix last commit message</span></div>
+                <div class="s-row"><span class="s-key">git reset HEAD~1</span><span class="s-desc">Undo last commit, keep changes</span></div>
+                <div class="s-row"><span class="s-key">git cherry-pick &lt;sha&gt;</span><span class="s-desc">Pull a single commit into branch</span></div>
+                <div class="s-row"><span class="s-key">git blame &lt;file&gt;</span><span class="s-desc">See who wrote each line</span></div>
+                <div class="s-row"><span class="s-key">git reflog</span><span class="s-desc">Recover lost commits</span></div>
             </div>
             <div class="s-col">
                 <div class="s-section">CLAUDE CODE</div>
                 <div class="s-row"><span class="s-key">/clear</span><span class="s-desc">Clear conversation context</span></div>
                 <div class="s-row"><span class="s-key">/compact</span><span class="s-desc">Compress context, keep summary</span></div>
                 <div class="s-row"><span class="s-key">/memory</span><span class="s-desc">View / edit memory files</span></div>
-                <div class="s-row"><span class="s-key">/model</span><span class="s-desc">Switch model mid-session</span></div>
-                <div class="s-row"><span class="s-key">/cost</span><span class="s-desc">Show token usage + cost</span></div>
-                <div class="s-row"><span class="s-key">/status</span><span class="s-desc">Show current session status</span></div>
+                <div class="s-row"><span class="s-key">/model</span><span class="s-desc">Switch model mid-conversation</span></div>
+                <div class="s-row"><span class="s-key">/cost</span><span class="s-desc">Show token usage and cost</span></div>
+                <div class="s-row"><span class="s-key">/status</span><span class="s-desc">Current session status</span></div>
+                <div class="s-row"><span class="s-key">/help</span><span class="s-desc">Show all available commands</span></div>
+                <div class="s-row"><span class="s-key">/config</span><span class="s-desc">Open settings</span></div>
+                <div class="s-row"><span class="s-key">/permissions</span><span class="s-desc">Review tool permissions</span></div>
+                <div class="s-row"><span class="s-key">/review</span><span class="s-desc">Review code changes in PR</span></div>
+                <div class="s-row"><span class="s-key">/init</span><span class="s-desc">Set up CLAUDE.md for project</span></div>
+                <div class="s-row"><span class="s-key">/bug &lt;desc&gt;</span><span class="s-desc">Report a bug</span></div>
                 <div class="s-row"><span class="s-key">Esc Esc</span><span class="s-desc">Interrupt Claude mid-response</span></div>
                 <div class="s-row"><span class="s-key">↑ arrow</span><span class="s-desc">Recall last prompt</span></div>
-                <div class="s-row"><span class="s-key">Shift + Enter</span><span class="s-desc">New line without submitting</span></div>
+                <div class="s-row"><span class="s-key">Shift + Enter</span><span class="s-desc">Multiline input</span></div>
+                <div class="s-row"><span class="s-key">Shift + Tab</span><span class="s-desc">Toggle between files / conversation</span></div>
 
-                <div class="s-section">GIT WORKFLOW</div>
-                <div class="s-row"><span class="s-key">git diff --stat</span><span class="s-desc">Quick change summary</span></div>
-                <div class="s-row"><span class="s-key">git stash</span><span class="s-desc">Stash dirty state fast</span></div>
-                <div class="s-row"><span class="s-key">git log --oneline</span><span class="s-desc">Compact commit history</span></div>
-                <div class="s-row"><span class="s-key">git checkout -</span><span class="s-desc">Switch to last branch</span></div>
-                <div class="s-row"><span class="s-key">git commit --amend</span><span class="s-desc">Fix last commit message</span></div>
-                <div class="s-row"><span class="s-key">git reset HEAD~1</span><span class="s-desc">Undo last commit, keep changes</span></div>
+                <div class="s-section">CLAUDE CODE: HEADLESS / REMOTE</div>
+                <div class="s-row"><span class="s-key">claude -p "..."</span><span class="s-desc">One-shot prompt, no session</span></div>
+                <div class="s-row"><span class="s-key">claude -c</span><span class="s-desc">Continue last conversation</span></div>
+                <div class="s-row"><span class="s-key">claude -r "..."</span><span class="s-desc">Resume with new instructions</span></div>
+                <div class="s-row"><span class="s-key">cat file | claude -p</span><span class="s-desc">Pipe input as context</span></div>
+                <div class="s-row"><span class="s-key">claude --dangerously-skip-permissions</span><span class="s-desc">Full auto mode (careful)</span></div>
+                <div class="s-row"><span class="s-key">claude --output-format json</span><span class="s-desc">JSON output for scripting</span></div>
+                <div class="s-row"><span class="s-key">claude --verbose</span><span class="s-desc">Show all tool calls</span></div>
+
+                <div class="s-section">MULTI-SESSION MANAGEMENT</div>
+                <div class="s-row"><span class="s-key">cs</span><span class="s-desc">Claude Squad: multi-instance TUI</span></div>
+                <div class="s-row"><span class="s-key">cs: n</span><span class="s-desc">New instance</span></div>
+                <div class="s-row"><span class="s-key">cs: a</span><span class="s-desc">Attach to instance</span></div>
+                <div class="s-row"><span class="s-key">cs: g</span><span class="s-desc">Git status of instance</span></div>
+                <div class="s-row"><span class="s-key">cs: Tab</span><span class="s-desc">Switch between tabs</span></div>
+                <div class="s-row"><span class="s-key">screen -S name</span><span class="s-desc">Named persistent session</span></div>
+                <div class="s-row"><span class="s-key">screen -r name</span><span class="s-desc">Reattach to session</span></div>
+                <div class="s-row"><span class="s-key">tmux new -s name</span><span class="s-desc">Named tmux session</span></div>
+                <div class="s-row"><span class="s-key">tmux a -t name</span><span class="s-desc">Reattach tmux session</span></div>
             </div>
+        </div>
+
+        <div class="s-section" style="margin-top:20px;">TIPS &amp; TRICKS</div>
+        <div class="s-cols">
+            <div class="s-col">
+                <div class="s-tip"><strong>Route models by task.</strong> Haiku for grunt work (installing, running tests, file ops). Sonnet for feature building and code review. Opus for architecture, hard debugging, and creative work. Save ~50% in credits.</div>
+                <div class="s-tip"><strong>CLAUDE.md is your autopilot.</strong> Put project conventions, build commands, and coding style in CLAUDE.md at your project root. Every Claude session reads it automatically. The better your CLAUDE.md, the less you repeat yourself.</div>
+                <div class="s-tip"><strong>Use /compact before you hit the wall.</strong> When context gets long, Claude starts forgetting. Run /compact proactively to compress history and keep the session sharp. Better to compact early than to lose important context.</div>
+                <div class="s-tip"><strong>Pipe for automation.</strong> Chain Claude into scripts: <code style="color:var(--accent)">git diff | claude -p "review this"</code> or <code style="color:var(--accent)">cat error.log | claude -p "what went wrong?"</code>. Great for CI pipelines and automated reviews.</div>
+                <div class="s-tip"><strong>The snake means done.</strong> When a terminal window shows the glowing border animation, that window's task has finished. Start typing to dismiss it. Sounds play only on task completion.</div>
+            </div>
+            <div class="s-col">
+                <div class="s-tip"><strong>Workspaces keep you sane.</strong> Group related projects into workspaces using the tabs. One for "frontend", one for "backend", one for "side projects". Double-click to rename, right-click to delete. Everything saves between sessions.</div>
+                <div class="s-tip"><strong>SSH into remote and run Claude there.</strong> Claude Code works over SSH. Open a terminal, SSH into your server, run <code style="color:var(--accent)">claude</code>. You now have a remote AI dev session with full file access on that machine.</div>
+                <div class="s-tip"><strong>Run Claude headless in the background.</strong> Use <code style="color:var(--accent)">claude -p "do X" --output-format json</code> for fire-and-forget tasks. Combine with <code style="color:var(--accent)">nohup</code> or <code style="color:var(--accent)">tmux</code> for long-running background agents.</div>
+                <div class="s-tip"><strong>Multiple Claudes, one repo.</strong> Use Claude Squad (<code style="color:var(--accent)">cs</code>) or git worktrees to run parallel sessions on the same project without file conflicts. Each session gets its own branch and working directory.</div>
+                <div class="s-tip"><strong>Sessions survive restarts.</strong> DMT saves your open windows, positions, sizes, and workspaces. Close and reopen, everything comes back exactly as it was.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="appearanceModal">
+    <div class="app-box">
+        <div class="s-header">
+            <div class="m-title">APPEARANCE</div>
+            <button class="s-close" id="appearanceClose">✕</button>
+        </div>
+
+        <div class="app-section">MODE</div>
+        <div class="app-theme-btns" id="themePicker">
+            <button class="app-theme-btn" data-theme="spaceship">SPACESHIP</button>
+            <button class="app-theme-btn" data-theme="classic">CLASSIC</button>
+            <button class="app-theme-btn" data-theme="hyperspace">HYPERSPACE</button>
+        </div>
+
+        <div class="app-section">FONT</div>
+        <div class="app-row">
+            <span class="app-label">Terminal font</span>
+            <select class="app-select" id="appFontFamily">
+                <option value="'SF Mono', 'Menlo', monospace">SF Mono</option>
+                <option value="'Menlo', monospace">Menlo</option>
+                <option value="'Courier New', monospace">Courier New</option>
+                <option value="'Fira Code', monospace">Fira Code</option>
+                <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
+                <option value="'Source Code Pro', monospace">Source Code Pro</option>
+                <option value="'IBM Plex Mono', monospace">IBM Plex Mono</option>
+                <option value="'Cascadia Code', monospace">Cascadia Code</option>
+            </select>
+        </div>
+        <div class="app-row">
+            <span class="app-label">Default font size</span>
+            <select class="app-select" id="appFontSize">
+                <option value="12">12</option>
+                <option value="13">13</option>
+                <option value="14">14</option>
+                <option value="15" selected>15</option>
+                <option value="16">16</option>
+                <option value="17">17</option>
+                <option value="18">18</option>
+                <option value="20">20</option>
+            </select>
+        </div>
+        <div class="app-preview" id="fontPreview" style="font-family:'SF Mono','Menlo',monospace; font-size:15px; color:var(--text); background:var(--panel-bg);">
+            hello world ~ ssh dev@server
+        </div>
+
+        <div class="app-section">EFFECTS</div>
+        <div class="app-row">
+            <span class="app-label">Scanlines</span>
+            <div class="app-toggle on" id="toggleScanlines"></div>
+        </div>
+        <div class="app-row">
+            <span class="app-label">Starfield</span>
+            <div class="app-toggle on" id="toggleStarfield"></div>
+        </div>
+        <div class="app-row">
+            <span class="app-label">Completion sounds</span>
+            <div class="app-toggle on" id="toggleSounds"></div>
+        </div>
+        <div class="app-row">
+            <span class="app-label">Snake border on done</span>
+            <div class="app-toggle on" id="toggleSnake"></div>
+        </div>
+
+        <div class="app-section">SIDE PANELS</div>
+        <div class="app-row">
+            <span class="app-label">Show side panels</span>
+            <div class="app-toggle on" id="toggleNano"></div>
         </div>
     </div>
 </div>

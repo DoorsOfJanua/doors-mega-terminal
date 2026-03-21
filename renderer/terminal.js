@@ -24,16 +24,32 @@ window.scc.onTermData(({ id, data }) => {
   }
 });
 
+const DEFAULT_FONT_SIZE = 15;
+
+function getTermTheme() {
+  if (document.body.classList.contains('theme-classic')) {
+    const light = window.matchMedia('(prefers-color-scheme: light)').matches;
+    return light
+      ? { background: '#ffffff', foreground: '#1c1c1e', cursor: '#007aff', selectionBackground: 'rgba(0,122,255,0.15)' }
+      : { background: '#1c1c1e', foreground: '#f2f2f7', cursor: '#007aff', selectionBackground: 'rgba(0,122,255,0.2)' };
+  }
+  if (document.body.classList.contains('theme-hyperspace')) {
+    return { background: '#0a0012', foreground: '#e0a0ff', cursor: '#ff00ff', selectionBackground: 'rgba(255,0,255,0.2)' };
+  }
+  // spaceship (default)
+  return { background: '#000e1a', foreground: '#00ff88', cursor: '#00ffcc', selectionBackground: 'rgba(0,255,200,0.3)' };
+}
+
+export function refreshAllTermThemes() {
+  const theme = getTermTheme();
+  terminals.forEach(t => { t.term.options.theme = theme; });
+}
+
 export async function initTerminal(id, container, projectPath, onStateChange) {
   const term = new Terminal({
-    fontFamily: '"Courier New", monospace',
-    fontSize: 12,
-    theme: {
-      background: '#000e1a',
-      foreground: '#00ff88',
-      cursor: '#00ffcc',
-      selectionBackground: 'rgba(0,255,200,0.3)'
-    },
+    fontFamily: '"SF Mono", "Menlo", "Courier New", monospace',
+    fontSize: DEFAULT_FONT_SIZE,
+    theme: getTermTheme(),
     cursorBlink: true
   });
 
@@ -60,6 +76,20 @@ export async function initTerminal(id, container, projectPath, onStateChange) {
   });
 
   terminals.set(id, { term, fit, resizeObserver, onStateChange, lastOutput: '' });
+}
+
+export function resizeTerminalFont(id, delta) {
+  const t = terminals.get(id);
+  if (!t) return;
+  const newSize = Math.max(8, Math.min(32, t.term.options.fontSize + delta));
+  t.term.options.fontSize = newSize;
+  t.fit.fit();
+  window.scc.termResize(id, t.term.cols, t.term.rows);
+  return newSize;
+}
+
+export function sendTerminalInput(id, text) {
+  window.scc.termInput(id, text);
 }
 
 export function destroyTerminal(id) {
