@@ -58,8 +58,6 @@ function applyTheme(theme) {
         document.body.classList.add('theme-' + theme);
     }
     currentTheme = theme;
-    const btn = document.getElementById('themeBtn');
-    if (btn) btn.textContent = THEME_LABELS[theme] || 'THEME';
     // DMT background
     const ap = window.scc.assetsPath;
     if (theme === 'hyperspace') {
@@ -84,11 +82,6 @@ function applyTheme(theme) {
     refreshAllTermThemes();
 }
 
-document.getElementById('themeBtn').addEventListener('click', (e) => {
-    e.stopPropagation();
-    openAppearance();
-});
-
 document.getElementById('soundBtn').addEventListener('click', async (e) => {
     e.stopPropagation();
     soundEnabled = !soundEnabled;
@@ -105,11 +98,6 @@ function toggleDropdown(menuId) {
     document.querySelectorAll('.tool-dropdown-menu').forEach(m => m.classList.remove('open'));
     if (!wasOpen) menu.classList.add('open');
 }
-
-document.getElementById('viewMenuBtn').addEventListener('click', (e) => {
-    e.stopPropagation();
-    toggleDropdown('viewMenu');
-});
 
 document.getElementById('settingsMenuBtn').addEventListener('click', (e) => {
     e.stopPropagation();
@@ -659,8 +647,28 @@ document.getElementById('tileBtn').addEventListener('click',()=>{
 function toggleCmd() { document.getElementById('cmdBar').classList.toggle('collapsed'); }
 document.getElementById('cmdHandle').addEventListener('click',toggleCmd);
 
+// ── COMMAND CENTER FONT SIZE ─────────────────────────────
+let cmdFontSize = 12;
+document.getElementById('cmdFontDn').addEventListener('click', () => {
+    cmdFontSize = Math.max(8, cmdFontSize - 1);
+    document.getElementById('cmdCenter').style.fontSize = cmdFontSize + 'px';
+});
+document.getElementById('cmdFontUp').addEventListener('click', () => {
+    cmdFontSize = Math.min(20, cmdFontSize + 1);
+    document.getElementById('cmdCenter').style.fontSize = cmdFontSize + 'px';
+});
+
 // ── KEYBOARD ──────────────────────────────────────────────
 let claudeShortcut = { ctrl: true, shift: true, key: 'C' };
+
+// ── SIDE PANEL TOGGLE ────────────────────────────────────
+let sidePanelsVisible = true;
+document.getElementById('togglePanelsBtn').addEventListener('click', () => {
+    sidePanelsVisible = !sidePanelsVisible;
+    document.querySelectorAll('.nano-side').forEach(el => {
+        el.style.display = sidePanelsVisible ? '' : 'none';
+    });
+});
 
 document.addEventListener('keydown',e=>{
     if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
@@ -872,6 +880,65 @@ document.getElementById('aboutBtn').addEventListener('click', openAbout);
 document.getElementById('aboutClose').addEventListener('click', closeAbout);
 document.getElementById('aboutModal').addEventListener('click', e => {
     if (e.target === document.getElementById('aboutModal')) closeAbout();
+});
+
+// ── GUIDE MODAL ──────────────────────────────────────────
+document.getElementById('guideBtn').addEventListener('click', () => {
+    document.getElementById('guideModal').classList.add('show');
+});
+document.getElementById('guideClose').addEventListener('click', () => {
+    document.getElementById('guideModal').classList.remove('show');
+});
+document.getElementById('guideModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('guideModal'))
+        document.getElementById('guideModal').classList.remove('show');
+});
+
+// ── COLOR SUBMENU ────────────────────────────────────────
+const ACCENT_COLORS = {
+    spaceship: [
+        { name: 'CYAN',       accent: '#00ffff', glow: 'rgba(0,255,255,0.55)',   text: '#00e5ff' },
+        { name: 'AMBER',      accent: '#ffb300', glow: 'rgba(255,179,0,0.55)',   text: '#ffc107' },
+        { name: 'SOLARIZED',  accent: '#859900', glow: 'rgba(133,153,0,0.55)',   text: '#b5bd68' },
+        { name: 'RED ALERT',  accent: '#ff3333', glow: 'rgba(255,51,51,0.55)',   text: '#ff6666' },
+    ],
+    classic: [
+        { name: 'BLUE',   accent: '#007aff', glow: 'rgba(0,122,255,0.4)',  text: '#007aff' },
+        { name: 'GREEN',  accent: '#34c759', glow: 'rgba(52,199,89,0.4)',  text: '#30d158' },
+        { name: 'GRAY',   accent: '#8e8e93', glow: 'rgba(142,142,147,0.4)',text: '#8e8e93' },
+    ],
+    hyperspace: [
+        { name: 'MAGENTA', accent: '#ff00ff', glow: 'rgba(255,0,255,0.55)', text: '#e8b0ff' },
+        { name: 'PURPLE',  accent: '#8b5cf6', glow: 'rgba(139,92,246,0.55)',text: '#c4b5fd' },
+        { name: 'CRIMSON', accent: '#ef4444', glow: 'rgba(239,68,68,0.55)', text: '#fca5a5' },
+    ],
+};
+
+function buildColorSubmenu() {
+    const sub = document.getElementById('colorSubmenu');
+    while (sub.firstChild) sub.removeChild(sub.firstChild);
+    const colors = ACCENT_COLORS[currentTheme] || [];
+    colors.forEach(c => {
+        const btn = document.createElement('button');
+        btn.className = 'color-opt';
+        btn.textContent = c.name;
+        btn.style.borderLeft = '3px solid ' + c.accent;
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.documentElement.style.setProperty('--accent', c.accent);
+            document.documentElement.style.setProperty('--accent-glow', c.glow);
+            document.documentElement.style.setProperty('--text', c.text);
+            sub.classList.remove('open');
+            document.querySelectorAll('.tool-dropdown-menu').forEach(m => m.classList.remove('open'));
+        });
+        sub.appendChild(btn);
+    });
+}
+
+document.getElementById('colorBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    buildColorSubmenu();
+    document.getElementById('colorSubmenu').classList.toggle('open');
 });
 
 async function confirmModal(){

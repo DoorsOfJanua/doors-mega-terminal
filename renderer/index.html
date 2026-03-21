@@ -310,7 +310,7 @@
             transition: transform 0.26s ease;
         }
 
-        #cmdBar.collapsed { transform: translateY(calc(100% - 28px)); }
+        #cmdBar.collapsed { transform: translateY(calc(100% - 78px)); }
 
         #cmdHandle {
             height: 28px;
@@ -374,9 +374,13 @@
 
         #workspaceTabs {
             display: flex; gap: 2px; align-items: center; overflow-x: auto; margin-right: 8px;
+            scrollbar-width: thin; scrollbar-color: var(--accent-faint) transparent;
+            flex: 1; min-width: 0;
         }
+        #workspaceTabs::-webkit-scrollbar { height: 3px; }
+        #workspaceTabs::-webkit-scrollbar-thumb { background: var(--accent-faint); border-radius: 2px; }
         .ws-tab {
-            font-size: 7px; letter-spacing: 1.5px; padding: 3px 10px;
+            font-size: 7px; letter-spacing: 1.5px; padding: 3px 10px; flex-shrink: 0; white-space: nowrap;
             color: var(--text-dim); background: transparent;
             border: 1px solid transparent; border-radius: 2px;
             cursor: pointer; white-space: nowrap;
@@ -390,7 +394,7 @@
             border-radius: 2px; cursor: pointer; font-family: var(--font-ui);
         }
         .ws-tab-add:hover { color: var(--accent); border-color: var(--accent); }
-        .cmd-tools { display: flex; gap: 5px; align-items: center; margin-left: auto; }
+        .cmd-tools { display: flex; gap: 5px; align-items: center; margin-left: auto; flex-shrink: 0; }
 
         .tool-btn {
             padding: 2px 7px; background: transparent;
@@ -647,6 +651,23 @@
         .about-crypto { display:flex; gap:12px; flex-wrap:wrap; }
         .crypto-item { font-size:7px; color:var(--text-faint); border:1px solid var(--accent-faint); padding:8px 12px; border-radius:2px; font-family:'Courier New',monospace; word-break:break-all; max-width:150px; text-align:center; }
         .crypto-label { color:var(--text-dim); font-size:8px; letter-spacing:3px; margin-bottom:4px; }
+
+        /* GUIDE MODAL */
+        #guideModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:600; align-items:center; justify-content:center; }
+        #guideModal.show { display:flex; }
+        .guide-box { background:var(--panel-bg); border:1px solid var(--panel-border); border-radius:3px; padding:24px 28px; width:560px; max-height:80vh; overflow-y:auto; box-shadow:0 0 60px var(--accent-faint); }
+        .guide-box h2 { font-family:var(--font-ui); font-size:11px; letter-spacing:2px; color:var(--accent); margin-bottom:16px; }
+        .guide-section { margin-bottom:18px; }
+        .guide-section h3 { font-family:var(--font-ui); font-size:9px; letter-spacing:1.5px; color:var(--text); margin-bottom:8px; }
+        .guide-section p { font-size:10px; color:var(--text-dim); line-height:1.8; font-family:'Courier New',monospace; }
+        .guide-section .g-key { color:var(--accent); font-weight:bold; }
+
+        /* COLOR SUBMENU */
+        .color-submenu { display:none; position:absolute; bottom:0; right:calc(100% + 4px); background:var(--panel-bg); border:1px solid var(--panel-border); border-radius:3px; min-width:100px; z-index:610; }
+        .color-submenu.open { display:block; }
+        .color-opt { display:block; width:100%; padding:6px 12px; background:transparent; border:none; color:var(--text-dim); font-family:var(--font-ui); font-size:7px; letter-spacing:1.5px; text-align:left; cursor:pointer; }
+        .color-opt:hover { background:var(--accent-dim); color:var(--text); }
+        .color-opt.active { color:var(--accent); }
     </style>
 </head>
 <body>
@@ -666,18 +687,20 @@
                 <div class="cmd-tools">
                     <button class="tool-btn primary" id="addBtn">+ ADD</button>
                     <button class="tool-btn" id="tileBtn">TILE</button>
+                    <button class="tool-btn" id="togglePanelsBtn" title="Toggle side panels">◧</button>
+                    <button class="tool-btn" id="cmdFontDn" title="Smaller text">−</button>
+                    <button class="tool-btn" id="cmdFontUp" title="Bigger text">+</button>
                     <div class="tool-dropdown">
-                        <button class="tool-btn" id="viewMenuBtn">VIEW ▾</button>
-                        <div class="tool-dropdown-menu" id="viewMenu">
-                            <button class="tdm-item" id="themeBtn">THEME</button>
-                        </div>
-                    </div>
-                    <div class="tool-dropdown">
-                        <button class="tool-btn" id="settingsMenuBtn">⚙</button>
+                        <button class="tool-btn" id="settingsMenuBtn">SETTINGS ▾</button>
                         <div class="tool-dropdown-menu" id="settingsMenu">
                             <button class="tdm-item" id="appearanceBtn">APPEARANCE</button>
+                            <div style="position:relative;">
+                                <button class="tdm-item" id="colorBtn">COLORS ▸</button>
+                                <div class="color-submenu" id="colorSubmenu"></div>
+                            </div>
                             <button class="tdm-item" id="soundBtn">SFX ON</button>
                             <button class="tdm-item" id="shortcutsBtn">SHORTCUTS</button>
+                            <button class="tdm-item" id="guideBtn">GUIDE</button>
                             <button class="tdm-item" id="aboutBtn">ABOUT</button>
                         </div>
                     </div>
@@ -907,6 +930,56 @@
       <div class="crypto-item"><div class="crypto-label">BTC</div><span id="about-btc">add before release</span></div>
       <div class="crypto-item"><div class="crypto-label">USDT</div><span id="about-usdt">add before release</span></div>
       <div class="crypto-item"><div class="crypto-label">XMR</div><span id="about-xmr">add before release</span></div>
+    </div>
+  </div>
+</div>
+
+<div id="guideModal">
+  <div class="guide-box">
+    <div class="s-header">
+      <div class="m-title">GUIDE</div>
+      <button class="s-close" id="guideClose">X</button>
+    </div>
+    <div class="guide-section">
+      <h3>WORKSPACES</h3>
+      <p><span class="g-key">Click tab</span> to switch workspace<br>
+      <span class="g-key">Click +</span> to create a new workspace<br>
+      <span class="g-key">Double-click tab</span> to rename it<br>
+      <span class="g-key">Right-click tab</span> to delete it<br>
+      Each workspace has its own set of terminal windows.</p>
+    </div>
+    <div class="guide-section">
+      <h3>TERMINAL WINDOWS</h3>
+      <p><span class="g-key">+ ADD</span> creates a new terminal window<br>
+      <span class="g-key">Drag header</span> to move window<br>
+      <span class="g-key">Drag edges</span> to resize<br>
+      <span class="g-key">TILE</span> auto-arranges all windows in a grid<br>
+      <span class="g-key">− +</span> buttons on window header change that window's font size</p>
+    </div>
+    <div class="guide-section">
+      <h3>CLAUDE BUTTON</h3>
+      <p>Each window has a <span class="g-key">Claude</span> button that types <span class="g-key">claude</span> + Enter into the terminal to launch Claude Code.</p>
+    </div>
+    <div class="guide-section">
+      <h3>MODEL BADGE</h3>
+      <p>Click the <span class="g-key">Sonnet/Haiku/Opus</span> badge on a window header to switch models. This sends <span class="g-key">/model &lt;name&gt;</span> directly to the terminal.</p>
+    </div>
+    <div class="guide-section">
+      <h3>SIDE PANELS</h3>
+      <p><span class="g-key">Left-click</span> a side panel to cycle through animations (panel, warp, cockpit, nebula, matrix, radar, fractal).<br>
+      <span class="g-key">Right-click</span> to cycle through background images (Star Wars cockpit panels). Not available in Classic mode.</p>
+    </div>
+    <div class="guide-section">
+      <h3>COMMAND CENTER</h3>
+      <p><span class="g-key">SPACE</span> toggles the command center open/closed.<br>
+      <span class="g-key">− +</span> next to SETTINGS changes command center text size.<br>
+      <span class="g-key">SETTINGS</span> menu has appearance, colors, sound, shortcuts, and this guide.</p>
+    </div>
+    <div class="guide-section">
+      <h3>KEYBOARD</h3>
+      <p><span class="g-key">1-9</span> focus window by number<br>
+      <span class="g-key">SPACE</span> toggle command center<br>
+      <span class="g-key">Ctrl+Shift+C</span> open Claude Code in focused window</p>
     </div>
   </div>
 </div>
