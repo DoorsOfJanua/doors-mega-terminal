@@ -1,7 +1,7 @@
 {
-  "name": "spaceship-command-center",
+  "name": "doors-mega-terminal",
   "version": "0.1.0",
-  "description": "A floating multi-window terminal manager with a Millennium Falcon aesthetic",
+  "description": "DMT — Doors Mega Terminal. A floating multi-window terminal manager for builders.",
   "main": "main.js",
   "author": "Janua <nils.palmen@gmail.com>",
   "license": "MIT",
@@ -28,8 +28,8 @@
     "node-pty": "^1.0.0"
   },
   "build": {
-    "appId": "com.doorsofjanua.spaceship",
-    "productName": "Spaceship Command Center",
+    "appId": "com.doorsofjanua.dmt",
+    "productName": "Doors Mega Terminal",
     "icon": "assets/icon.icns",
     "mac": {
       "category": "public.app-category.developer-tools",

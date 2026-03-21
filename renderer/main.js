@@ -1,4 +1,4 @@
-import { initTerminal, destroyTerminal } from './terminal.js';
+import { initTerminal, destroyTerminal, resizeTerminalFont, refreshAllTermThemes, sendTerminalInput } from './terminal.js';
 
 // ── SOUND ─────────────────────────────────────────────────
 const DONE_SOUNDS = ['done-boing.wav', 'done-notification.wav', 'done-coin.wav'];
@@ -44,37 +44,76 @@ function playSound(file, volume = 0.65) {
 })();
 
 // ── THEME SYSTEM ──────────────────────────────────────────
-const THEMES = ['cyan-cockpit', 'amber', 'solarized', 'native'];
-const THEME_LABELS = { 'cyan-cockpit': 'CYAN', 'amber': 'AMBER', 'solarized': 'SOL', 'native': 'OS' };
+const THEMES = ['spaceship', 'classic', 'hyperspace'];
+const THEME_LABELS = { 'spaceship': 'SPACESHIP', 'classic': 'CLASSIC', 'hyperspace': 'HYPERSPACE' };
 
-let currentTheme = 'cyan-cockpit';
+let currentTheme = 'spaceship';
 
 function applyTheme(theme) {
-    document.body.className = document.body.className
-        .replace(/\btheme-\S+/g, '').trim();
-    if (theme !== 'cyan-cockpit') {
+    // Preserve non-theme classes (no-scanlines, no-snake, etc.)
+    const keepClasses = [];
+    document.body.classList.forEach(c => { if (!c.startsWith('theme-')) keepClasses.push(c); });
+    document.body.className = keepClasses.join(' ');
+    if (theme !== 'spaceship') {
         document.body.classList.add('theme-' + theme);
     }
     currentTheme = theme;
     const btn = document.getElementById('themeBtn');
     if (btn) btn.textContent = THEME_LABELS[theme] || 'THEME';
+    // DMT background
+    const ap = window.scc.assetsPath;
+    if (theme === 'hyperspace') {
+        document.body.style.backgroundImage = `url('file://${ap}/images/dmt-bg.jpg')`;
+        document.body.style.backgroundSize = 'cover';
+        document.body.style.backgroundPosition = 'center';
+    } else {
+        document.body.style.backgroundImage = '';
+        document.body.style.backgroundSize = '';
+        document.body.style.backgroundPosition = '';
+    }
+    // Side panel backgrounds: only show images in spaceship/hyperspace, plain in classic
+    const nL = document.getElementById('nanoLeft');
+    const nR = document.getElementById('nanoRight');
+    if (theme === 'classic') {
+        nL.style.backgroundImage = 'none';
+        nR.style.backgroundImage = 'none';
+    } else {
+        nL.style.backgroundImage = `url('file://${ap}/images/nano-left.jpg')`;
+        nR.style.backgroundImage = `url('file://${ap}/images/nano-right.jpg')`;
+    }
+    refreshAllTermThemes();
 }
 
-document.getElementById('themeBtn').addEventListener('click', async () => {
-    const idx = (THEMES.indexOf(currentTheme) + 1) % THEMES.length;
-    const next = THEMES[idx];
-    applyTheme(next);
-    const cfg = await window.scc.readConfig();
-    cfg.theme = next;
-    await window.scc.writeConfig(cfg);
+document.getElementById('themeBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    openAppearance();
 });
 
-document.getElementById('soundBtn').addEventListener('click', async () => {
+document.getElementById('soundBtn').addEventListener('click', async (e) => {
+    e.stopPropagation();
     soundEnabled = !soundEnabled;
+    appSettings.sounds = soundEnabled;
     document.getElementById('soundBtn').textContent = soundEnabled ? 'SFX ON' : 'SFX OFF';
-    const cfg = await window.scc.readConfig();
-    cfg.soundEnabled = soundEnabled;
-    await window.scc.writeConfig(cfg);
+    await saveAppSettings();
+});
+
+// ── DROPDOWN MENUS ──────────────────────────────────────
+function toggleDropdown(menuId) {
+    const menu = document.getElementById(menuId);
+    const wasOpen = menu.classList.contains('open');
+    // Close all dropdowns first
+    document.querySelectorAll('.tool-dropdown-menu').forEach(m => m.classList.remove('open'));
+    if (!wasOpen) menu.classList.add('open');
+}
+
+document.getElementById('viewMenuBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleDropdown('viewMenu');
+});
+
+document.getElementById('settingsMenuBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleDropdown('settingsMenu');
 });
 
 // ── CONFIG ───────────────────────────────────────────────
@@ -82,15 +121,99 @@ const SIZES = { S:{w:260,h:170}, M:{w:420,h:280}, L:{w:640,h:440} };
 
 const MODELS = ['Haiku','Sonnet','Opus'];
 
-// Default projects — empty, user adds their own via + ADD or config
-const DEFAULT_PROJECTS = [];
+// ── WORKSPACES ──────────────────────────────────────────
+let workspaces  = [{ name: 'ALL', projects: [] }];
+let activeWsIdx = 0;
 
 // ── STATE ────────────────────────────────────────────────
-let wins        = [];
-let projects    = [];   // master project list (shown in ledger even when no window open)
+let wins        = [];   // terminal windows for current workspace
+let projects    = [];   // pointer to active workspace's project list
 let zTop        = 10;
 let idSeq       = 1;
 let dragCtx     = null; // { type:'move'|'resize', data, handle, sx,sy,ox,oy,ow,oh }
+
+// Each workspace stores: { name, projects:[], winIds:[] }
+function syncProjects() { projects = workspaces[activeWsIdx]?.projects || []; }
+
+function renderWorkspaceTabs() {
+    const container = document.getElementById('workspaceTabs');
+    while (container.firstChild) container.removeChild(container.firstChild);
+
+    workspaces.forEach((ws, i) => {
+        const tab = document.createElement('button');
+        tab.className = 'ws-tab' + (i === activeWsIdx ? ' active' : '');
+        tab.textContent = ws.name;
+        tab.addEventListener('click', () => switchWorkspace(i));
+        tab.addEventListener('dblclick', () => renameWorkspace(i));
+        tab.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            if (workspaces.length > 1) removeWorkspace(i);
+        });
+        container.appendChild(tab);
+    });
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'ws-tab-add';
+    addBtn.textContent = '+';
+    addBtn.title = 'New workspace';
+    addBtn.addEventListener('click', addWorkspace);
+    container.appendChild(addBtn);
+}
+
+function switchWorkspace(idx) {
+    // Hide current workspace's windows
+    wins.forEach(w => { if (w.element) w.element.style.display = 'none'; });
+    workspaces[activeWsIdx]._wins = wins;
+
+    activeWsIdx = idx;
+    wins = workspaces[idx]._wins || [];
+    syncProjects();
+
+    // Show this workspace's windows
+    wins.forEach(w => { if (w.element) w.element.style.display = ''; });
+
+    renderWorkspaceTabs();
+    refreshLedger();
+}
+
+function addWorkspace() {
+    const name = prompt('Workspace name:');
+    if (!name || !name.trim()) return;
+    workspaces.push({ name: name.trim(), projects: [], _wins: [] });
+    switchWorkspace(workspaces.length - 1);
+    saveWorkspaces();
+}
+
+function renameWorkspace(idx) {
+    const name = prompt('Rename workspace:', workspaces[idx].name);
+    if (!name || !name.trim()) return;
+    workspaces[idx].name = name.trim();
+    renderWorkspaceTabs();
+    saveWorkspaces();
+}
+
+function removeWorkspace(idx) {
+    if (workspaces.length <= 1) return;
+    // Kill all terminals in this workspace
+    const wsWins = workspaces[idx]._wins || (idx === activeWsIdx ? wins : []);
+    wsWins.forEach(w => { destroyTerminal(w.id); if (w.element) w.element.remove(); });
+    workspaces.splice(idx, 1);
+    if (activeWsIdx >= workspaces.length) activeWsIdx = workspaces.length - 1;
+    wins = workspaces[activeWsIdx]._wins || [];
+    syncProjects();
+    renderWorkspaceTabs();
+    refreshLedger();
+    saveWorkspaces();
+}
+
+async function saveWorkspaces() {
+    const cfg = await window.scc.readConfig();
+    cfg.workspaces = workspaces.map(ws => ({
+        name: ws.name,
+        projects: ws.projects.map(p => ({ title: p.title, path: p.path || '', model: p.model }))
+    }));
+    await window.scc.writeConfig(cfg);
+}
 
 // ── HELPERS ──────────────────────────────────────────────
 function setTxt(el,v) { el.textContent = String(v); }
@@ -149,10 +272,12 @@ function mkWin(cfg) {
     });
 
     const btns = document.createElement('div'); btns.className = 'ph-btns';
+    const fontDn   = mkPB('−','pb font-dn','Smaller font');
+    const fontUp   = mkPB('+','pb font-up','Bigger font');
     const minBtn   = mkPB('_','pb min','Minimise');
     const maxBtn   = mkPB('□','pb max','Fullscreen');
     const closeBtn = mkPB('✕','pb close','Close');
-    btns.append(minBtn, maxBtn, closeBtn);
+    btns.append(fontDn, fontUp, minBtn, maxBtn, closeBtn);
     hdr.append(dot, titleEl, modelWrap, btns);
 
     // Body
@@ -227,6 +352,8 @@ function setModel(data, model) {
     const badge = data.element.querySelector('.ph-model');
     badge.className = 'ph-model ' + mClass(model);
     setTxt(badge, model);
+    // Send /model command to the terminal
+    sendTerminalInput(data.id, '/model ' + model.toLowerCase() + '\n');
     // Update matching project entry
     const proj = projects.find(p => p.title === data.title);
     if (proj) proj.model = model;
@@ -269,6 +396,8 @@ function bindWin(data) {
         focus(data);
     });
 
+    el.querySelector('.pb.font-dn').addEventListener('click', e => { e.stopPropagation(); resizeTerminalFont(data.id, -2); });
+    el.querySelector('.pb.font-up').addEventListener('click', e => { e.stopPropagation(); resizeTerminalFont(data.id, 2); });
     el.querySelector('.pb.min').addEventListener('click', e => { e.stopPropagation(); toggleMin(data); });
     el.querySelector('.pb.max').addEventListener('click', e => { e.stopPropagation(); toggleFS(data); });
     el.querySelector('.pb.close').addEventListener('click', e => { e.stopPropagation(); rmWin(data.id); });
@@ -368,9 +497,10 @@ document.addEventListener('mouseup', () => {
     dragCtx=null;
 });
 
-// Close any open model picker on outside click
+// Close any open model picker or dropdown on outside click
 document.addEventListener('click', () => {
     document.querySelectorAll('.model-picker').forEach(p => p.classList.remove('show'));
+    document.querySelectorAll('.tool-dropdown-menu').forEach(m => m.classList.remove('open'));
 });
 
 // ── LOG RENDERING ─────────────────────────────────────────
@@ -551,6 +681,137 @@ document.getElementById('shortcutsModal').addEventListener('click',e=>{
         document.getElementById('shortcutsModal').classList.remove('show');
 });
 
+// ── APPEARANCE MODAL ─────────────────────────────────────
+let appSettings = {
+    scanlines: true, starfield: true, sounds: true, snake: true, nanoZones: true,
+    fontFamily: "'SF Mono', 'Menlo', monospace", fontSize: 15
+};
+
+document.getElementById('appearanceBtn').addEventListener('click', () => {
+    openAppearance();
+});
+document.getElementById('appearanceClose').addEventListener('click', () => {
+    document.getElementById('appearanceModal').classList.remove('show');
+});
+document.getElementById('appearanceModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('appearanceModal'))
+        document.getElementById('appearanceModal').classList.remove('show');
+});
+
+function openAppearance() {
+    // Sync theme buttons
+    document.querySelectorAll('#themePicker .app-theme-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.theme === currentTheme);
+    });
+    // Sync font
+    document.getElementById('appFontFamily').value = appSettings.fontFamily;
+    document.getElementById('appFontSize').value = appSettings.fontSize;
+    updateFontPreview();
+    // Sync toggles
+    syncToggle('toggleScanlines', appSettings.scanlines);
+    syncToggle('toggleStarfield', appSettings.starfield);
+    syncToggle('toggleSounds', appSettings.sounds);
+    syncToggle('toggleSnake', appSettings.snake);
+    syncToggle('toggleNano', appSettings.nanoZones);
+
+    document.getElementById('appearanceModal').classList.add('show');
+}
+
+function syncToggle(id, val) {
+    document.getElementById(id).classList.toggle('on', val);
+}
+
+// Theme picker buttons
+document.querySelectorAll('#themePicker .app-theme-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const theme = btn.dataset.theme;
+        applyTheme(theme);
+        document.querySelectorAll('#themePicker .app-theme-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const cfg = await window.scc.readConfig();
+        cfg.theme = theme;
+        await window.scc.writeConfig(cfg);
+    });
+});
+
+// Font family
+document.getElementById('appFontFamily').addEventListener('change', async (e) => {
+    appSettings.fontFamily = e.target.value;
+    updateFontPreview();
+    applyAppFont();
+    await saveAppSettings();
+});
+
+// Font size
+document.getElementById('appFontSize').addEventListener('change', async (e) => {
+    appSettings.fontSize = parseInt(e.target.value);
+    updateFontPreview();
+    applyAppFont();
+    await saveAppSettings();
+});
+
+function updateFontPreview() {
+    const preview = document.getElementById('fontPreview');
+    preview.style.fontFamily = appSettings.fontFamily;
+    preview.style.fontSize = appSettings.fontSize + 'px';
+}
+
+function applyAppFont() {
+    // Update CSS custom property used by future terminals
+    document.documentElement.style.setProperty('--font-mono', appSettings.fontFamily);
+}
+
+// Toggle handlers
+function setupToggle(id, key, applyFn) {
+    document.getElementById(id).addEventListener('click', async () => {
+        appSettings[key] = !appSettings[key];
+        syncToggle(id, appSettings[key]);
+        if (applyFn) applyFn(appSettings[key]);
+        await saveAppSettings();
+    });
+}
+
+setupToggle('toggleScanlines', 'scanlines', (on) => {
+    document.body.style.setProperty('--scanline-display', on ? 'block' : 'none');
+    // Apply via class
+    document.body.classList.toggle('no-scanlines', !on);
+});
+
+setupToggle('toggleStarfield', 'starfield', (on) => {
+    const c = document.getElementById('stars');
+    if (c) c.style.display = on ? '' : 'none';
+});
+
+setupToggle('toggleSounds', 'sounds', (on) => {
+    soundEnabled = on;
+    document.getElementById('soundBtn').textContent = on ? 'SFX ON' : 'SFX OFF';
+});
+
+setupToggle('toggleSnake', 'snake', () => {
+    // snake CSS will check this via body class
+    document.body.classList.toggle('no-snake', !appSettings.snake);
+});
+
+setupToggle('toggleNano', 'nanoZones', (on) => {
+    document.querySelectorAll('.nano-side').forEach(el => {
+        el.style.display = on ? '' : 'none';
+    });
+});
+
+async function saveAppSettings() {
+    const cfg = await window.scc.readConfig();
+    cfg.appearance = {
+        fontFamily: appSettings.fontFamily,
+        fontSize: appSettings.fontSize,
+        scanlines: appSettings.scanlines,
+        starfield: appSettings.starfield,
+        sounds: appSettings.sounds,
+        snake: appSettings.snake,
+        nanoZones: appSettings.nanoZones
+    };
+    await window.scc.writeConfig(cfg);
+}
+
 // ── ABOUT MODAL ───────────────────────────────────────────
 const ABOUT_JOKES = [
     'Why do developers prefer dark mode?\nLight attracts bugs.',
@@ -597,9 +858,7 @@ async function confirmModal(){
     projects.push(proj);
     openProjectWindow(proj);
     closeModal();
-    const cfg = await window.scc.readConfig();
-    cfg.projects = projects.map(p => ({ title: p.title, path: p.path || '', model: p.model }));
-    await window.scc.writeConfig(cfg);
+    saveWorkspaces();
 }
 
 function closeModal(){
@@ -615,11 +874,25 @@ function closeModal(){
     }
 })();
 
-// ── NANO ZONE ANIMATIONS (click to cycle, right-click to add custom) ──
-const ANIM_MODES = ['warp', 'cockpit', 'nebula', 'matrix', 'radar'];
-const ANIM_LABELS = { warp:'WARP', cockpit:'COCKPIT', nebula:'NEBULA', matrix:'MATRIX', radar:'RADAR' };
-const customImages = {}; // { 'custom-0': 'file:///path', 'custom-1': 'file:///path' }
+// ── NANO ZONE ANIMATIONS (click to cycle, right-click to cycle background) ──
+const ANIM_MODES = ['panel', 'warp', 'cockpit', 'nebula', 'matrix', 'radar', 'fractal'];
+const ANIM_LABELS = { panel:'PANEL', warp:'WARP', cockpit:'COCKPIT', nebula:'NEBULA', matrix:'MATRIX', radar:'RADAR', fractal:'FRACTAL' };
+const customImages = {};
 let customCount = 0;
+
+// Background gallery for PANEL mode
+const PANEL_BACKGROUNDS = [
+    { file: 'nano-left.jpg',  label: 'COCKPIT LEFT' },
+    { file: 'nano-right.jpg', label: 'COCKPIT RIGHT' },
+    { file: 'backgrounds/falcon-cockpit-view.jpg', label: 'FALCON VIEW' },
+    { file: 'backgrounds/falcon-cockpit-leak.webp', label: 'FALCON INTERIOR' },
+    { file: 'backgrounds/falcon-controls.avif', label: 'FALCON CONTROLS' },
+    { file: 'backgrounds/falcon-switches.avif', label: 'FALCON SWITCHES' },
+    { file: 'backgrounds/falcon-panel-blue.avif', label: 'BLUE PANEL' },
+    { file: 'backgrounds/falcon-panel-red.avif', label: 'RED PANEL' },
+    { file: 'backgrounds/falcon-levers.avif', label: 'FALCON LEVERS' },
+    { file: 'backgrounds/falcon-manual-control.png', label: 'MANUAL CONTROL' },
+];
 
 function createNanoAnimation(zoneId, modeLabel, startMode) {
     const zone = document.getElementById(zoneId);
@@ -633,33 +906,31 @@ function createNanoAnimation(zoneId, modeLabel, startMode) {
 
     let mode = startMode;
     let t = 0;
-    label.textContent = ANIM_LABELS[mode];
+    label.textContent = mode === 'panel' ? PANEL_BACKGROUNDS[zoneId === 'nanoLeft' ? 0 : 1].label : ANIM_LABELS[mode];
 
     zone.addEventListener('click', (e) => {
         if (e.button !== 0) return;
         const idx = (ANIM_MODES.indexOf(mode) + 1) % ANIM_MODES.length;
         mode = ANIM_MODES[idx];
-        label.textContent = ANIM_LABELS[mode] || mode.toUpperCase();
+        if (mode === 'panel') {
+            label.textContent = PANEL_BACKGROUNDS[bgIdx].label;
+        } else {
+            label.textContent = ANIM_LABELS[mode] || mode.toUpperCase();
+        }
         ctx.clearRect(0,0,W,H);
         initMode();
     });
 
-    // Right-click to add custom image frame
-    zone.addEventListener('contextmenu', async (e) => {
+    // Right-click to cycle background image (visible in PANEL mode)
+    let bgIdx = zoneId === 'nanoLeft' ? 0 : 1; // left starts on cockpit-left, right on cockpit-right
+    zone.addEventListener('contextmenu', (e) => {
         e.preventDefault();
-        if (customCount >= 2) return; // max 2 custom frames
-        const imgPath = await window.scc.pickImage();
-        if (!imgPath) return;
-        const key = 'custom-' + customCount;
-        customCount++;
-        customImages[key] = imgPath;
-        ANIM_MODES.push(key);
-        ANIM_LABELS[key] = 'CUSTOM ' + customCount;
-        // switch to it immediately
-        mode = key;
-        label.textContent = ANIM_LABELS[key];
-        ctx.clearRect(0,0,W,H);
-        initMode();
+        if (currentTheme === 'classic') return; // no background images in classic mode
+        bgIdx = (bgIdx + 1) % PANEL_BACKGROUNDS.length;
+        const bg = PANEL_BACKGROUNDS[bgIdx];
+        const ap = window.scc.assetsPath;
+        zone.style.backgroundImage = `url('file://${ap}/images/${bg.file}')`;
+        if (mode === 'panel') label.textContent = bg.label;
     });
 
     // ── WARP state ──
@@ -731,10 +1002,73 @@ function createNanoAnimation(zoneId, modeLabel, startMode) {
         }));
     }
 
+    // ── FRACTAL state ──
+    let fractalPhase = 0;
+    let fractalCx = -0.745, fractalCy = 0.186;
+    const fractalBuf = ctx.createImageData(W, H);
+
+    function drawFractal() {
+        fractalPhase += 0.003;
+        // Smooth ping-pong: zoom in then back out using sine wave
+        const wave = (Math.sin(fractalPhase) + 1) / 2; // 0..1..0..1
+        const fractalZoom = Math.exp(wave * 11); // 1 to ~60000 and back
+        const scale = 3.0 / fractalZoom;
+        const ox = fractalCx - scale / 2;
+        const oy = fractalCy - scale * (H / W) / 2;
+        const data = fractalBuf.data;
+        const step = Math.max(1, Math.floor(3 / Math.min(fractalZoom, 3))); // skip pixels when zoomed out for speed
+        const maxIter = Math.min(80, 30 + Math.floor(fractalZoom * 0.5));
+
+        for (let py = 0; py < H; py += step) {
+            for (let px = 0; px < W; px += step) {
+                const x0 = ox + (px / W) * scale;
+                const y0 = oy + (py / H) * scale * (H / W);
+                let x = 0, y = 0, iter = 0;
+                while (x * x + y * y <= 4 && iter < maxIter) {
+                    const xt = x * x - y * y + x0;
+                    y = 2 * x * y + y0;
+                    x = xt;
+                    iter++;
+                }
+                const idx = (py * W + px) * 4;
+                if (iter === maxIter) {
+                    data[idx] = 0; data[idx + 1] = 0; data[idx + 2] = 0; data[idx + 3] = 255;
+                } else {
+                    const t = iter / maxIter;
+                    const hue = (t * 360 + fractalZoom * 2) % 360;
+                    const s = 0.9, v = t < 0.05 ? t * 20 : 1;
+                    const hi = Math.floor(hue / 60) % 6;
+                    const f = hue / 60 - Math.floor(hue / 60);
+                    const p = v * (1 - s), q = v * (1 - f * s), tt = v * (1 - (1 - f) * s);
+                    let r, g, b;
+                    if (hi === 0) { r = v; g = tt; b = p; }
+                    else if (hi === 1) { r = q; g = v; b = p; }
+                    else if (hi === 2) { r = p; g = v; b = tt; }
+                    else if (hi === 3) { r = p; g = q; b = v; }
+                    else if (hi === 4) { r = tt; g = p; b = v; }
+                    else { r = v; g = p; b = q; }
+                    data[idx] = r * 255; data[idx + 1] = g * 255; data[idx + 2] = b * 255; data[idx + 3] = 255;
+                    // Fill skipped pixels
+                    if (step > 1) {
+                        for (let sy = 0; sy < step && py + sy < H; sy++) {
+                            for (let sx = 0; sx < step && px + sx < W; sx++) {
+                                if (sy === 0 && sx === 0) continue;
+                                const si = ((py + sy) * W + px + sx) * 4;
+                                data[si] = data[idx]; data[si+1] = data[idx+1]; data[si+2] = data[idx+2]; data[si+3] = 255;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        ctx.putImageData(fractalBuf, 0, 0);
+    }
+
     function initMode() {
         if (mode === 'warp') initWarp();
         if (mode === 'matrix') initMatrix();
         if (mode === 'radar') initRadar();
+        if (mode === 'fractal') fractalPhase = 0;
     }
 
     // ── DRAW FUNCTIONS ──
@@ -980,40 +1314,86 @@ function createNanoAnimation(zoneId, modeLabel, startMode) {
 
     function loop() {
         t++;
-        if (mode === 'warp') drawWarp();
-        else if (mode === 'cockpit') drawCockpit();
-        else if (mode === 'nebula') drawNebula();
-        else if (mode === 'matrix') drawMatrix();
-        else if (mode === 'radar') drawRadar();
-        else if (mode.startsWith('custom-')) drawCustom();
+        if (mode === 'panel') {
+            // No canvas overlay, just the background image
+            wc.style.display = 'none';
+        } else {
+            wc.style.display = '';
+            if (mode === 'warp') drawWarp();
+            else if (mode === 'cockpit') drawCockpit();
+            else if (mode === 'nebula') drawNebula();
+            else if (mode === 'matrix') drawMatrix();
+            else if (mode === 'radar') drawRadar();
+            else if (mode === 'fractal') drawFractal();
+            else if (mode.startsWith('custom-')) drawCustom();
+        }
         requestAnimationFrame(loop);
     }
     loop();
 }
 
-createNanoAnimation('nanoLeft', 'nanoLeftMode', 'warp');
-createNanoAnimation('nanoRight', 'nanoRightMode', 'cockpit');
+createNanoAnimation('nanoLeft', 'nanoLeftMode', 'panel');
+createNanoAnimation('nanoRight', 'nanoRightMode', 'warp');
 
-// ── SHUTDOWN SOUND ────────────────────────────────────────
+// ── SESSION SAVE/RESTORE ─────────────────────────────────
+function saveSession() {
+    // Snapshot all workspaces' open windows
+    const session = workspaces.map((ws, i) => {
+        const wsWins = (i === activeWsIdx) ? wins : (ws._wins || []);
+        return {
+            name: ws.name,
+            projects: ws.projects.map(p => ({ title: p.title, path: p.path || '', model: p.model })),
+            openWindows: wsWins.map(w => ({
+                title: w.title, model: w.model, path: w.path || '',
+                x: w.x, y: w.y, width: w.width, height: w.height,
+                state: w.state, zIndex: w.zIndex
+            }))
+        };
+    });
+    window.scc.writeConfig({
+        ...currentConfig,
+        workspaces: session.map(s => ({ name: s.name, projects: s.projects })),
+        session: { activeWorkspace: activeWsIdx, workspaceWindows: session.map(s => s.openWindows) }
+    });
+}
+
+let currentConfig = {};
+
+// ── APP CLOSING ──────────────────────────────────────────
 window.scc.onAppClosing(() => {
-    playSound('shutdown.wav', 0.7);
+    saveSession();
 });
 
 // ── INIT ──────────────────────────────────────────────────
 (async () => {
-    playSound('startup.wav', 0.6);
     const ap = window.scc.assetsPath;
-    document.getElementById('nanoLeft').style.backgroundImage  = `url('file://${ap}/images/nano-left.png')`;
-    document.getElementById('nanoRight').style.backgroundImage = `url('file://${ap}/images/nano-right.png')`;
+    document.getElementById('nanoLeft').style.backgroundImage  = `url('file://${ap}/images/nano-left.jpg')`;
+    document.getElementById('nanoRight').style.backgroundImage = `url('file://${ap}/images/nano-right.jpg')`;
     const cfg = await window.scc.readConfig();
+    currentConfig = cfg;
 
     if (cfg.theme) applyTheme(cfg.theme);
 
+    // Restore appearance settings
+    if (cfg.appearance) {
+        const a = cfg.appearance;
+        if (a.fontFamily) appSettings.fontFamily = a.fontFamily;
+        if (a.fontSize)   appSettings.fontSize = a.fontSize;
+        if (a.scanlines === false)  { appSettings.scanlines = false;  document.body.classList.add('no-scanlines'); }
+        if (a.starfield === false)  { appSettings.starfield = false;  const c = document.getElementById('stars'); if (c) c.style.display = 'none'; }
+        if (a.sounds === false)     { appSettings.sounds = false; soundEnabled = false; }
+        if (a.snake === false)      { appSettings.snake = false; document.body.classList.add('no-snake'); }
+        if (a.nanoZones === false)   { appSettings.nanoZones = false; document.querySelectorAll('.nano-side').forEach(el => el.style.display = 'none'); }
+        applyAppFont();
+    }
+
+    // Legacy sound setting
     if (cfg.soundEnabled === false) {
         soundEnabled = false;
-        const btn = document.getElementById('soundBtn');
-        if (btn) btn.textContent = 'SFX OFF';
+        appSettings.sounds = false;
     }
+    const soundBtnEl = document.getElementById('soundBtn');
+    if (soundBtnEl) soundBtnEl.textContent = soundEnabled ? 'SFX ON' : 'SFX OFF';
 
     if (cfg.claudeShortcut) {
         const parts = cfg.claudeShortcut.split('+');
@@ -1025,20 +1405,51 @@ window.scc.onAppClosing(() => {
         };
     }
 
-    if (cfg.projects && cfg.projects.length) {
-        cfg.projects.forEach(p => {
-            if (!projects.find(q => q.title === p.title)) projects.push(p);
-        });
+    // Load workspaces from config (fall back to legacy projects format)
+    if (cfg.workspaces && cfg.workspaces.length) {
+        workspaces = cfg.workspaces.map(ws => ({
+            name: ws.name,
+            projects: ws.projects || [],
+            _wins: []
+        }));
+    } else if (cfg.projects && cfg.projects.length) {
+        workspaces = [{ name: 'ALL', projects: [...cfg.projects], _wins: [] }];
     }
-    if (!projects.length) {
-        DEFAULT_PROJECTS.forEach(p => projects.push({...p}));
+
+    // Restore session: which workspace was active + open windows
+    const session = cfg.session;
+    if (session && session.activeWorkspace != null) {
+        activeWsIdx = Math.min(session.activeWorkspace, workspaces.length - 1);
+    } else {
+        activeWsIdx = 0;
     }
+
+    wins = workspaces[activeWsIdx]._wins;
+    syncProjects();
+    renderWorkspaceTabs();
     refreshLedger();
 
+    // Restore open windows for current workspace
+    if (session && session.workspaceWindows && session.workspaceWindows[activeWsIdx]) {
+        session.workspaceWindows[activeWsIdx].forEach(wCfg => {
+            const proj = projects.find(p => p.title === wCfg.title);
+            if (proj) {
+                mkWin({
+                    title: wCfg.title, model: wCfg.model, path: wCfg.path || proj.path,
+                    x: wCfg.x, y: wCfg.y, width: wCfg.width, height: wCfg.height,
+                    state: wCfg.state, zIndex: wCfg.zIndex
+                });
+            }
+        });
+        refreshLedger();
+    }
+
     window.scc.onConfigChanged(newCfg => {
-        if (newCfg.projects) {
-            projects.length = 0;
-            newCfg.projects.forEach(p => projects.push(p));
+        if (newCfg.workspaces) {
+            newCfg.workspaces.forEach((ws, i) => {
+                if (workspaces[i]) workspaces[i].projects = ws.projects || [];
+            });
+            syncProjects();
             refreshLedger();
         }
     });
