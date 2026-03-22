@@ -683,11 +683,41 @@ function refreshLedger() {
 
         // Status
         const status=document.createElement('div');
-        status.className='lr-status offline';
-        setTxt(status, 'OFFLINE');
+        status.className='lr-status ' + (win ? 'online' : 'offline');
+        setTxt(status, win ? 'ONLINE' : 'OFFLINE');
 
-        // Name
+        // Name — double-click to rename
         const name=document.createElement('div'); name.className='lr-name'; setTxt(name,proj.title);
+        name.title = 'Double-click to rename';
+        name.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            name.contentEditable = true;
+            name.focus();
+            const range = document.createRange();
+            range.selectNodeContents(name);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+            const finish = () => {
+                name.contentEditable = false;
+                const newTitle = name.textContent.trim();
+                if (newTitle) {
+                    proj.title = newTitle;
+                    if (win) win.title = newTitle;
+                    if (win) {
+                        const titleEl = win.element.querySelector('.ph-title');
+                        if (titleEl) setTxt(titleEl, newTitle);
+                    }
+                    saveWorkspaces();
+                }
+                setTxt(name, proj.title);
+            };
+            name.addEventListener('blur', finish, { once: true });
+            name.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter') { ev.preventDefault(); name.blur(); }
+                if (ev.key === 'Escape') { name.textContent = proj.title; name.blur(); }
+            }, { once: true });
+        });
 
         // Last message
         const msg=document.createElement('div'); msg.className='lr-msg';
