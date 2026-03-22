@@ -213,6 +213,7 @@ function renderWorkspaceTabs() {
 }
 
 function switchWorkspace(idx) {
+    workspaces[idx]._hasAlert = false;
     // Hide current workspace's windows
     wins.forEach(w => { if (w.element) w.element.style.display = 'none'; });
     workspaces[activeWsIdx]._wins = wins;
@@ -404,13 +405,25 @@ function mkWin(cfg) {
 
     requestAnimationFrame(() => {
         initTerminal(id, termContainer, path || '', (winId, snakeState) => {
-            const win = wins.find(w => w.id === winId);
-            if (win && win.element) {
-                win.element.dataset.snake = snakeState;
-                if (snakeState === 'done') {
-                    playSound(DONE_SOUNDS[Math.floor(Math.random() * DONE_SOUNDS.length)], 0.55);
-                }
+            let targetWsIdx = null, targetWin = null;
+            for (let i = 0; i < workspaces.length; i++) {
+                const wsWins = i === activeWsIdx ? wins : (workspaces[i]._wins || []);
+                const found = wsWins.find(w => w.id === winId);
+                if (found) { targetWsIdx = i; targetWin = found; break; }
             }
+            if (!targetWin) return;
+            targetWin.snakeState = snakeState;
+            if (targetWin.element) targetWin.element.dataset.snake = snakeState;
+
+            if (snakeState === 'done') {
+                playSound(DONE_SOUNDS[Math.floor(Math.random() * DONE_SOUNDS.length)], 0.55);
+                if (targetWsIdx !== null && targetWsIdx !== activeWsIdx) {
+                    workspaces[targetWsIdx]._hasAlert = true;
+                    renderWorkspaceTabs();
+                }
+                updateTaskMonitor();
+            }
+            if (snakeState === 'running') updateTaskMonitor();
         }).catch(err =>
             console.error('[scc] terminal init failed for', id, err)
         );
@@ -2039,5 +2052,59 @@ window.scc.onAppClosing(() => {
             e.preventDefault();
             triggerWarp();
         }
+    });
+
+    // ── TASK MONITOR ──────────────────────────────────────────
+    let taskMonitorOpen = false;
+
+    function openTaskMonitor()  { taskMonitorOpen = true;  document.getElementById('taskMonitor').style.display = 'flex'; updateTaskMonitor(); }
+    function closeTaskMonitor() { taskMonitorOpen = false; document.getElementById('taskMonitor').style.display = 'none'; }
+
+    function getAllWinsWithWs() {
+        const all = [];
+        workspaces.forEach((ws, wsIdx) => {
+            const wsWins = wsIdx === activeWsIdx ? wins : (ws._wins || []);
+            wsWins.forEach(w => all.push({ win: w, wsIdx, wsName: ws.name }));
+        });
+        return all;
+    }
+
+    function updateTaskMonitor() {
+        if (!taskMonitorOpen) return;
+        const list = document.getElementById('taskMonitorList');
+        while (list.firstChild) list.removeChild(list.firstChild);
+        const all = getAllWinsWithWs();
+
+        if (!all.length) {
+            const empty = document.createElement('div'); empty.className = 'tm-empty';
+            empty.textContent = 'No windows open';
+            list.appendChild(empty);
+            return;
+        }
+
+        all.forEach(({ win, wsIdx, wsName }) => {
+            const state = win.snakeState || win.element?.dataset?.snake || 'running';
+            const row  = document.createElement('div'); row.className = 'tm-row';
+            const dot  = document.createElement('div'); dot.className = 'tm-dot ' + state;
+            const info = document.createElement('div'); info.className = 'tm-info';
+            const name = document.createElement('div'); name.className = 'tm-name';
+            name.textContent = win.title || win.id;
+            const ws = document.createElement('div'); ws.className = 'tm-ws';
+            ws.textContent = wsName + (wsIdx === activeWsIdx ? ' (current)' : '');
+            info.append(name, ws);
+            row.append(dot, info);
+            row.addEventListener('click', () => {
+                switchWorkspace(wsIdx);
+                closeTaskMonitor();
+                const w = wins.find(w2 => w2.id === win.id);
+                if (w) w.element.style.zIndex = ++zTop;
+            });
+            list.appendChild(row);
+        });
+    }
+
+    document.getElementById('taskMonitorClose').addEventListener('click', closeTaskMonitor);
+    document.getElementById('taskMonitorBtn').addEventListener('click', () => {
+        taskMonitorOpen ? closeTaskMonitor() : openTaskMonitor();
     });
 })();
