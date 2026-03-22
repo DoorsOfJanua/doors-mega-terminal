@@ -1,7 +1,60 @@
-import { initTerminal, destroyTerminal, resizeTerminalFont, refreshAllTermThemes, sendTerminalInput } from './terminal.js';
+import { initTerminal, destroyTerminal, resizeTerminalFont, refreshAllTermThemes, sendTerminalInput, setKeywordRules, getLastLines } from './terminal.js';
 
 // ── SOUND ─────────────────────────────────────────────────
 const DONE_SOUNDS = ['done-boing.wav', 'done-notification.wav', 'done-coin.wav'];
+const APPROVAL_SOUND = 'done-notification.wav';
+
+// ── TOKEN TRACKER ─────────────────────────────────────────
+const winTokens = new Map(); // id → { inputTokens, outputTokens, cost }
+const winBranch = new Map(); // id → branch string (for Task 7)
+
+const COST_RATES = {
+  Haiku:  { in: 0.25,  out: 1.25  },
+  Sonnet: { in: 3.0,   out: 15.0  },
+  Opus:   { in: 15.0,  out: 75.0  }
+};
+
+function calcCost(inputTokens, outputTokens, model) {
+  const r = COST_RATES[model] || COST_RATES.Sonnet;
+  return (inputTokens / 1_000_000) * r.in + (outputTokens / 1_000_000) * r.out;
+}
+
+let tokenBudget = 500;
+let tokenMonth  = '';
+let tokenUsed   = 0;
+
+function updateBudgetBar() {
+  const wrap = document.getElementById('tokenBudgetWrap');
+  if (!wrap) return;
+  const fill  = wrap.querySelector('.token-budget-fill');
+  const label = wrap.querySelector('.token-budget-label');
+  const pct = tokenBudget > 0 ? Math.min(1, tokenUsed / tokenBudget) : 0;
+  fill.style.width = (pct * 100).toFixed(1) + '%';
+  fill.className = 'token-budget-fill' + (pct >= 1 ? ' over' : pct >= 0.8 ? ' warn' : '');
+  label.textContent = '$' + tokenUsed.toFixed(2) + ' / $' + tokenBudget;
+}
+
+async function addTokenCost(winId, model, inputTokens, outputTokens) {
+  const cost = calcCost(inputTokens, outputTokens, model);
+  winTokens.set(winId, { inputTokens, outputTokens, cost });
+  const nowMonth = new Date().toISOString().slice(0, 7);
+  const cfg = await window.scc.readConfig();
+  if ((cfg.tokenMonth || '') !== nowMonth) { tokenUsed = 0; tokenMonth = nowMonth; }
+  else { tokenUsed = cfg.tokenUsed || 0; }
+  tokenBudget = cfg.tokenBudget || 500;
+  tokenUsed += cost;
+  await window.scc.writeConfig({ ...cfg, tokenUsed, tokenMonth: nowMonth });
+  updateBudgetBar();
+  refreshLedger();
+}
+
+// ── KEYWORD ALERTS ────────────────────────────────────────
+let keywordAlerts = [
+  { pattern: 'error',  regex: false, enabled: true },
+  { pattern: 'failed', regex: false, enabled: true },
+  { pattern: 'fatal',  regex: false, enabled: true },
+  { pattern: 'ENOENT', regex: false, enabled: true }
+];
 
 let soundEnabled = true;
 
@@ -454,30 +507,67 @@ function mkWin(cfg) {
     body.appendChild(termContainer);
 
     requestAnimationFrame(() => {
-        initTerminal(id, termContainer, path || '', (winId, snakeState) => {
-            let targetWsIdx = null, targetWin = null;
-            for (let i = 0; i < workspaces.length; i++) {
-                const wsWins = i === activeWsIdx ? wins : (workspaces[i]._wins || []);
-                const found = wsWins.find(w => w.id === winId);
-                if (found) { targetWsIdx = i; targetWin = found; break; }
-            }
-            if (!targetWin) return;
-            targetWin.snakeState = snakeState;
-            if (targetWin.element) targetWin.element.dataset.snake = snakeState;
-
-            if (snakeState === 'done') {
-                playSound(DONE_SOUNDS[Math.floor(Math.random() * DONE_SOUNDS.length)], 0.55);
-                if (targetWsIdx !== null && targetWsIdx !== activeWsIdx) {
-                    workspaces[targetWsIdx]._hasAlert = true;
-                    renderWorkspaceTabs();
+        initTerminal(
+            id, termContainer, path || '',
+            (winId, snakeState) => {
+                let targetWsIdx = null, targetWin = null;
+                for (let i = 0; i < workspaces.length; i++) {
+                    const wsWins = i === activeWsIdx ? wins : (workspaces[i]._wins || []);
+                    const found = wsWins.find(w => w.id === winId);
+                    if (found) { targetWsIdx = i; targetWin = found; break; }
                 }
-                updateTaskMonitor();
+                if (!targetWin) return;
+                targetWin.snakeState = snakeState;
+                if (targetWin.element) targetWin.element.dataset.snake = snakeState;
+                if (snakeState === 'done') {
+                    playSound(DONE_SOUNDS[Math.floor(Math.random() * DONE_SOUNDS.length)], 0.55);
+                    if (targetWsIdx !== null && targetWsIdx !== activeWsIdx) {
+                        workspaces[targetWsIdx]._hasAlert = true;
+                        renderWorkspaceTabs();
+                    }
+                    updateTaskMonitor();
+                }
+                if (snakeState === 'running') updateTaskMonitor();
+            },
+            (winId, { inputTokens, outputTokens }) => {
+                const entry = getAllWinsWithWs().find(e => e.win.id === winId);
+                const model = entry ? entry.win.model : 'Sonnet';
+                addTokenCost(winId, model, inputTokens, outputTokens);
+            },
+            (winId, pattern) => {
+                let targetWin = null;
+                for (let i = 0; i < workspaces.length; i++) {
+                    const wsWins = i === activeWsIdx ? wins : (workspaces[i]._wins || []);
+                    const found = wsWins.find(w => w.id === winId);
+                    if (found) { targetWin = found; break; }
+                }
+                if (!targetWin) return;
+                if (pattern === '__approval__') {
+                    targetWin.snakeState = 'approval';
+                    if (targetWin.element) targetWin.element.dataset.snake = 'approval';
+                    playSound(APPROVAL_SOUND, 0.7);
+                    updateTaskMonitor();
+                } else {
+                    targetWin.snakeState = 'alert';
+                    if (targetWin.element) {
+                        targetWin.element.dataset.snake = 'alert';
+                        clearTimeout(targetWin._alertTimer);
+                        targetWin._alertTimer = setTimeout(() => {
+                            if (targetWin.snakeState === 'alert') {
+                                targetWin.snakeState = 'running';
+                                if (targetWin.element) targetWin.element.dataset.snake = 'running';
+                                updateTaskMonitor();
+                            }
+                        }, 8000);
+                    }
+                    playSound('done-notification.wav', 0.5);
+                    updateTaskMonitor();
+                }
             }
-            if (snakeState === 'running') updateTaskMonitor();
-        }).catch(err =>
-            console.error('[scc] terminal init failed for', id, err)
-        );
-    });
+        ).then(() => {
+            setKeywordRules(id, keywordAlerts);
+        }).catch(err => console.error('[scc] terminal init failed for', id, err));
+    }); // end requestAnimationFrame
 
     const data = {
         id, title, model, logFile:log, path,
@@ -723,6 +813,14 @@ function refreshLedger() {
         const msg=document.createElement('div'); msg.className='lr-msg';
         setTxt(msg, win?win.message||'open':'click model to launch');
 
+        const costEl = document.createElement('div'); costEl.className = 'lr-cost';
+        const tokenData = win ? winTokens.get(win.id) : null;
+        setTxt(costEl, tokenData ? '$' + tokenData.cost.toFixed(4) : '');
+
+        const branchEl = document.createElement('div'); branchEl.className = 'lr-branch';
+        branchEl.id = 'lr-branch-' + (win ? win.id : proj.title.replace(/\W/g,'_'));
+        setTxt(branchEl, win ? (winBranch.get(win.id) || '') : '');
+
         // Model picker
         const mwrap=document.createElement('div'); mwrap.className='lr-model-wrap';
         const mbtn=document.createElement('button');
@@ -774,7 +872,7 @@ function refreshLedger() {
             actions.appendChild(openBtn);
         }
 
-        row.append(status,name,msg,mwrap,actions);
+        row.append(status, name, branchEl, costEl, msg, mwrap, actions);
         row.addEventListener('click',()=>{
             if(win){ if(win.state==='minimized') toggleMin(win); focus(win); }
             else openProjectWindow(proj);
@@ -1877,6 +1975,24 @@ window.scc.onAppClosing(() => {
     const cfg = await window.scc.readConfig();
     currentConfig = cfg;
 
+    tokenBudget = cfg.tokenBudget || 500;
+    const _nowMonth = new Date().toISOString().slice(0, 7);
+    tokenUsed = cfg.tokenMonth === _nowMonth ? (cfg.tokenUsed || 0) : 0;
+    tokenMonth = _nowMonth;
+
+    const _tasksBtn = document.getElementById('taskMonitorBtn');
+    if (_tasksBtn) {
+        const _bwrap = document.createElement('div');
+        _bwrap.id = 'tokenBudgetWrap'; _bwrap.className = 'token-budget-wrap';
+        _bwrap.title = 'Monthly API cost vs budget — click to set budget';
+        const _blbl = document.createElement('div'); _blbl.className = 'token-budget-label';
+        const _bbar = document.createElement('div'); _bbar.className = 'token-budget-bar';
+        const _bfil = document.createElement('div'); _bfil.className = 'token-budget-fill';
+        _bbar.appendChild(_bfil); _bwrap.append(_blbl, _bbar);
+        _tasksBtn.parentNode.insertBefore(_bwrap, _tasksBtn);
+        updateBudgetBar();
+    }
+
     if (cfg.theme) {
         applyTheme(cfg.theme);
         document.getElementById('quickThemeBtn').textContent = THEME_LABELS[cfg.theme] || 'THEME';
@@ -1906,6 +2022,7 @@ window.scc.onAppClosing(() => {
     if (soundBtnEl) soundBtnEl.textContent = soundEnabled ? 'SFX ON' : 'SFX OFF';
 
     if (cfg.shortcuts) Object.assign(shortcuts, cfg.shortcuts);
+    if (cfg.keywordAlerts) keywordAlerts = cfg.keywordAlerts;
 
     // Load workspaces from config (fall back to legacy projects format)
     if (cfg.workspaces && cfg.workspaces.length) {
