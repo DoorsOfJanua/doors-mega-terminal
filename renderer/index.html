@@ -139,6 +139,59 @@
         body.no-scanlines::after { display: none; }
         body.no-snake .panel[data-snake="done"] { animation: none; background-image: none; border: 1px solid var(--panel-border) !important; box-shadow: none; }
 
+        /* Approval state: yellow pulsing border */
+        .panel[data-snake="approval"] {
+            border: 2px solid #ffd60a !important;
+            animation: approval-pulse 1s ease-in-out infinite;
+            box-shadow: 0 0 12px rgba(255,214,10,0.7);
+        }
+        body.no-snake .panel[data-snake="approval"] { animation: none; box-shadow: none; }
+        @keyframes approval-pulse {
+            0%, 100% { box-shadow: 0 0 8px rgba(255,214,10,0.5); }
+            50%       { box-shadow: 0 0 20px rgba(255,214,10,0.9); }
+        }
+
+        /* Alert state: red flashing border */
+        .panel[data-snake="alert"] {
+            border: 2px solid #ff453a !important;
+            animation: alert-flash 0.5s ease-in-out infinite;
+            box-shadow: 0 0 14px rgba(255,69,58,0.6);
+        }
+        body.no-snake .panel[data-snake="alert"] { animation: none; box-shadow: none; }
+        @keyframes alert-flash {
+            0%, 100% { box-shadow: 0 0 6px rgba(255,69,58,0.4); }
+            50%       { box-shadow: 0 0 18px rgba(255,69,58,0.8); }
+        }
+
+        /* Task Monitor dots for new states */
+        .tm-dot.approval { background: #ffd60a; box-shadow: 0 0 4px #ffd60a; }
+        .tm-dot.alert    { background: #ff453a; box-shadow: 0 0 4px #ff453a; }
+
+        /* Token budget bar in toolbar */
+        .token-budget-wrap { display:flex; align-items:center; gap:4px; font-size:9px; color:var(--accent); opacity:0.7; padding:0 6px; }
+        .token-budget-label { white-space:nowrap; letter-spacing:0.04em; }
+        .token-budget-bar { width:60px; height:5px; background:rgba(255,255,255,0.1); border-radius:3px; overflow:hidden; }
+        .token-budget-fill { height:100%; border-radius:3px; background:var(--accent); transition:width 0.3s ease; }
+        .token-budget-fill.warn { background:#ff9f0a; }
+        .token-budget-fill.over { background:#ff453a; }
+
+        /* Per-workspace accent dot */
+        .ws-accent-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; margin-left:4px; border:1px solid rgba(255,255,255,0.3); cursor:pointer; position:relative; }
+        .ws-accent-dot.no-accent { background:transparent; }
+        .accent-picker { position:absolute; top:100%; left:0; margin-top:4px; background:var(--panel-bg); border:1px solid var(--panel-border); border-radius:6px; padding:6px; display:none; flex-wrap:wrap; gap:4px; width:100px; z-index:9999; }
+        .accent-picker.show { display:flex; }
+        .accent-preset { width:16px; height:16px; border-radius:50%; cursor:pointer; border:1px solid rgba(255,255,255,0.2); transition:transform 0.1s; }
+        .accent-preset:hover { transform:scale(1.2); }
+        .accent-preset.clear { background:transparent !important; border:1px dashed rgba(255,255,255,0.4); }
+
+        /* Ask Claude button in panel header */
+        .ph-ask-btn { font-size:10px; padding:1px 5px; border-radius:3px; cursor:pointer; background:rgba(255,214,10,0.15); border:1px solid rgba(255,214,10,0.4); color:#ffd60a; font-family:var(--font-ui); transition:background 0.15s; }
+        .ph-ask-btn:hover { background:rgba(255,214,10,0.3); }
+
+        /* Ledger branch + cost */
+        .lr-branch { font-size:9px; color:var(--accent); opacity:0.6; letter-spacing:0.04em; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .lr-cost   { font-size:9px; opacity:0.5; letter-spacing:0.04em; }
+
         canvas#stars { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
 
         /* ── FLOATING PANEL ──────────────────────────────────── */
@@ -785,6 +838,7 @@
                     <button class="tool-btn" id="quickThemeBtn" title="Cycle theme">THEME</button>
                     <button class="tool-btn" id="quickColorBtn" title="Cycle accent color">COLOR</button>
                     <button class="tool-btn" id="quickSfxBtn" title="Toggle sounds">SFX</button>
+                    <button class="tool-btn" id="restoreBtn" title="Restore last session">RESTORE</button>
                     <button class="tool-btn" id="taskMonitorBtn" title="Task Monitor">TASKS</button>
                     <button class="tool-btn" id="cmdFontDn" title="Zoom out">−</button>
                     <button class="tool-btn" id="cmdFontUp" title="Zoom in">+</button>
