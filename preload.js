@@ -32,4 +32,7 @@ contextBridge.exposeInMainWorld('scc', {
 
   // Claude stop signal
   onClaudeStop: (cb) => ipcRenderer.on('claude-stop', cb),
+
+  // Git
+  gitBranch: (dirPath) => ipcRenderer.invoke('git-branch', dirPath),
 });

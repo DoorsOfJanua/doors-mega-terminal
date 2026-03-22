@@ -116,3 +116,14 @@ ipcMain.handle('dialog:pick-image', async () => {
 ipcMain.on('terminal:input',  (_e, { id, data })       => ptys.write(id, data));
 ipcMain.on('terminal:resize', (_e, { id, cols, rows }) => ptys.resize(id, cols, rows));
 ipcMain.on('terminal:kill',   (_e, { id })             => ptys.kill(id));
+
+ipcMain.handle('git-branch', async (_e, dirPath) => {
+  if (!dirPath || typeof dirPath !== 'string') return '';
+  return new Promise(resolve => {
+    const { execFile } = require('child_process');
+    execFile('git', ['-C', dirPath, 'branch', '--show-current'],
+      { timeout: 3000 },
+      (_err, stdout) => resolve((stdout || '').trim())
+    );
+  });
+});
