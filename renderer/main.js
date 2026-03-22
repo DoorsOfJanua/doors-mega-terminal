@@ -58,6 +58,29 @@ let keywordAlerts = [
   { pattern: 'ENOENT', regex: false, enabled: true }
 ];
 
+// ── PER-WORKSPACE ACCENT ─────────────────────────────────
+const ACCENT_PRESETS = ['#00ff88','#007aff','#ff2d55','#ff9f0a','#30d158','#ff00ff','#5ac8fa','#ffd60a'];
+
+function hexToRgba(hex, a) {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return `rgba(${r},${g},${b},${a})`;
+}
+
+function applyWorkspaceAccent(hex) {
+    const root = document.documentElement;
+    if (!hex) {
+        root.style.removeProperty('--accent');
+        root.style.removeProperty('--accent-glow');
+        root.style.removeProperty('--accent-dim');
+        root.style.removeProperty('--accent-faint');
+        return;
+    }
+    root.style.setProperty('--accent',       hex);
+    root.style.setProperty('--accent-glow',  hexToRgba(hex, 0.55));
+    root.style.setProperty('--accent-dim',   hexToRgba(hex, 0.20));
+    root.style.setProperty('--accent-faint', hexToRgba(hex, 0.07));
+}
+
 let soundEnabled = true;
 
 function playSound(file, volume = 0.65) {
@@ -291,6 +314,42 @@ function renderWorkspaceTabs() {
         nameSpan.textContent = ws.name;
         tab.appendChild(nameSpan);
 
+        const accentDot = document.createElement('div');
+        accentDot.className = 'ws-accent-dot' + (ws._accent ? '' : ' no-accent');
+        accentDot.style.background = ws._accent || 'transparent';
+        accentDot.title = 'Set accent color';
+        const accentPicker = document.createElement('div');
+        accentPicker.className = 'accent-picker';
+        ACCENT_PRESETS.forEach(color => {
+            const sw = document.createElement('div');
+            sw.className = 'accent-preset'; sw.style.background = color; sw.title = color;
+            sw.addEventListener('click', ev => {
+                ev.stopPropagation();
+                ws._accent = color;
+                if (i === activeWsIdx) applyWorkspaceAccent(color);
+                accentPicker.classList.remove('show');
+                renderWorkspaceTabs(); saveWorkspaces();
+            });
+            accentPicker.appendChild(sw);
+        });
+        const clearSw = document.createElement('div');
+        clearSw.className = 'accent-preset clear'; clearSw.title = 'Theme default';
+        clearSw.addEventListener('click', ev => {
+            ev.stopPropagation();
+            ws._accent = null;
+            if (i === activeWsIdx) applyWorkspaceAccent(null);
+            accentPicker.classList.remove('show');
+            renderWorkspaceTabs(); saveWorkspaces();
+        });
+        accentPicker.appendChild(clearSw);
+        accentDot.appendChild(accentPicker);
+        accentDot.addEventListener('click', e => {
+            e.stopPropagation();
+            document.querySelectorAll('.accent-picker').forEach(p => p.classList.remove('show'));
+            accentPicker.classList.toggle('show');
+        });
+        tab.appendChild(accentDot);
+
         if (workspaces.length > 1) {
             const closeX = document.createElement('button');
             closeX.className = 'ws-tab-close';
@@ -330,6 +389,7 @@ function switchWorkspace(idx) {
     wins.forEach(w => { if (w.element) w.element.style.display = ''; });
 
     renderWorkspaceTabs();
+    applyWorkspaceAccent(workspaces[idx]._accent || null);
     refreshLedger();
 }
 
@@ -2137,6 +2197,10 @@ window.scc.onAppClosing(async () => {
     wins = workspaces[activeWsIdx]._wins;
     syncProjects();
     renderWorkspaceTabs();
+    applyWorkspaceAccent(workspaces[activeWsIdx]?._accent || null);
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.accent-picker.show').forEach(p => p.classList.remove('show'));
+    });
     refreshLedger();
 
     // Restore open windows for current workspace
