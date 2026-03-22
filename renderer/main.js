@@ -405,6 +405,14 @@ async function saveWorkspaces() {
 function setTxt(el,v) { el.textContent = String(v); }
 function mClass(m)    { return { Haiku:'haiku', Sonnet:'sonnet', Opus:'opus' }[m]||'sonnet'; }
 function nextModel(m) { const i = MODELS.indexOf(m); return MODELS[(i+1)%MODELS.length]; }
+async function fetchBranch(win) {
+    if (!win || !win.path) return;
+    const branch = await window.scc.gitBranch(win.path);
+    const trimmed = (branch || '').slice(0, 20);
+    winBranch.set(win.id, trimmed);
+    const el = document.getElementById('lr-branch-' + win.id);
+    if (el) setTxt(el, trimmed);
+}
 
 // ── CREATE WINDOW ────────────────────────────────────────
 function mkWin(cfg) {
@@ -575,6 +583,7 @@ function mkWin(cfg) {
         element:el, message:'', lastLines:cfg.lastLines||[], _sig:'',
     };
     wins.push(data);
+    fetchBranch(data);
     bindWin(data);
     refreshLedger();
     return data;
@@ -651,6 +660,7 @@ function focus(data) {
     data.element.classList.add('focused');
     data.zIndex = ++zTop; data.element.style.zIndex = data.zIndex;
     refreshLedger();
+    fetchBranch(data);
 }
 
 function toggleMin(data) {
