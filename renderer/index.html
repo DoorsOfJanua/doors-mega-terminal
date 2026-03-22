@@ -46,23 +46,21 @@
             --snake-glow:   rgba(48,209,88,0.5);
         }
 
-        /* Classic: light mode (daytime) */
-        @media (prefers-color-scheme: light) {
-            body.theme-classic {
-                --bg:           #f5f5f7;
-                --panel-bg:     rgb(255,255,255);
-                --panel-border: rgba(0,0,0,0.12);
-                --text:         #1c1c1e;
-                --text-dim:     rgba(60,60,67,0.6);
-                --text-faint:   rgba(60,60,67,0.25);
-                --accent:       #007aff;
-                --accent-dim:   rgba(0,122,255,0.12);
-                --accent-faint: rgba(0,122,255,0.04);
-                --snake-color:  #34c759;
-                --snake-glow:   rgba(52,199,89,0.45);
-            }
-            body.theme-classic .nano-side { background-color: #f5f5f7; }
+        /* Classic: light mode (daytime) - toggled by JS via .theme-classic-light */
+        body.theme-classic.theme-classic-light {
+            --bg:           #f5f5f7;
+            --panel-bg:     rgb(255,255,255);
+            --panel-border: rgba(0,0,0,0.12);
+            --text:         #1c1c1e;
+            --text-dim:     rgba(60,60,67,0.6);
+            --text-faint:   rgba(60,60,67,0.25);
+            --accent:       #007aff;
+            --accent-dim:   rgba(0,122,255,0.12);
+            --accent-faint: rgba(0,122,255,0.04);
+            --snake-color:  #34c759;
+            --snake-glow:   rgba(52,199,89,0.45);
         }
+        body.theme-classic.theme-classic-light .nano-side { background-color: #f5f5f7; }
 
         body.theme-classic .panel { box-shadow: 0 1px 6px rgba(0,0,0,0.15); border-radius: 8px; }
         body.theme-classic .panel-header { border-bottom: 1px solid var(--panel-border); border-radius: 8px 8px 0 0; }
@@ -946,6 +944,11 @@
         <div class="app-row">
             <span class="app-label">Show side panels</span>
             <div class="app-toggle on" id="toggleNano"></div>
+        </div>
+
+        <div class="ap-row" id="classicDayNightRow" style="display:none">
+          <span class="ap-label">Classic Mode</span>
+          <button id="classicDayNightBtn" class="ap-toggle">AUTO</button>
         </div>
     </div>
 </div>

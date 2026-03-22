@@ -49,6 +49,37 @@ const THEME_LABELS = { 'spaceship': 'SPACESHIP', 'classic': 'CLASSIC', 'hyperspa
 
 let currentTheme = 'spaceship';
 
+// ── CLASSIC DAY/NIGHT ─────────────────────────────────────
+// Light: 06:00-19:59. Dark: 20:00-05:59. Override: null=auto, true=light, false=dark
+let classicDayNightOverride = null;
+
+function applyClassicDayNight(forceLight) {
+    if (!document.body.classList.contains('theme-classic')) {
+        document.body.classList.remove('theme-classic-light');
+        return;
+    }
+    let isLight;
+    if (forceLight !== undefined) {
+        classicDayNightOverride = forceLight;
+        isLight = forceLight;
+    } else if (classicDayNightOverride !== null) {
+        isLight = classicDayNightOverride;
+    } else {
+        const h = new Date().getHours();
+        isLight = h >= 6 && h < 20;
+    }
+    document.body.classList.toggle('theme-classic-light', isLight);
+    const btn = document.getElementById('classicDayNightBtn');
+    if (btn) btn.textContent = classicDayNightOverride === null ? 'AUTO' : (isLight ? 'LIGHT' : 'DARK');
+}
+
+function updateClassicDayNightRow() {
+    const row = document.getElementById('classicDayNightRow');
+    if (row) row.style.display = document.body.classList.contains('theme-classic') ? '' : 'none';
+}
+
+setInterval(() => { if (classicDayNightOverride === null) applyClassicDayNight(); }, 60_000);
+
 function applyTheme(theme) {
     // Preserve non-theme classes (no-scanlines, no-snake, etc.)
     const keepClasses = [];
@@ -98,6 +129,8 @@ function applyTheme(theme) {
         }
     }
     refreshAllTermThemes();
+    applyClassicDayNight();
+    updateClassicDayNightRow();
 }
 
 document.getElementById('soundBtn').addEventListener('click', async (e) => {
@@ -939,6 +972,11 @@ setupToggle('toggleNano', 'nanoZones', (on) => {
     });
 });
 
+document.getElementById('classicDayNightBtn').addEventListener('click', () => {
+    const isLight = document.body.classList.contains('theme-classic-light');
+    applyClassicDayNight(!isLight);
+});
+
 async function saveAppSettings() {
     const cfg = await window.scc.readConfig();
     cfg.appearance = {
@@ -1611,6 +1649,7 @@ window.scc.onAppClosing(() => {
     if (cfg.theme) {
         applyTheme(cfg.theme);
         document.getElementById('quickThemeBtn').textContent = THEME_LABELS[cfg.theme] || 'THEME';
+        applyClassicDayNight();
     }
 
     // Restore appearance settings
