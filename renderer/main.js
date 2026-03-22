@@ -396,6 +396,7 @@ async function saveWorkspaces() {
     const cfg = await window.scc.readConfig();
     cfg.workspaces = workspaces.map(ws => ({
         name: ws.name,
+        _accent: ws._accent || null,
         projects: ws.projects.map(p => ({ title: p.title, path: p.path || '', model: p.model }))
     }));
     await window.scc.writeConfig(cfg);
@@ -2027,12 +2028,13 @@ createNanoAnimation('nanoLeft', 'nanoLeftMode', 'panel');
 createNanoAnimation('nanoRight', 'nanoRightMode', 'panel');
 
 // ── SESSION SAVE/RESTORE ─────────────────────────────────
-function saveSession() {
-    // Snapshot all workspaces' open windows
+async function saveSession() {
+    const cfg = await window.scc.readConfig();
     const session = workspaces.map((ws, i) => {
         const wsWins = (i === activeWsIdx) ? wins : (ws._wins || []);
         return {
             name: ws.name,
+            _accent: ws._accent || null,
             projects: ws.projects.map(p => ({ title: p.title, path: p.path || '', model: p.model })),
             openWindows: wsWins.map(w => ({
                 title: w.title, model: w.model, path: w.path || '',
@@ -2041,9 +2043,9 @@ function saveSession() {
             }))
         };
     });
-    window.scc.writeConfig({
-        ...currentConfig,
-        workspaces: session.map(s => ({ name: s.name, projects: s.projects })),
+    await window.scc.writeConfig({
+        ...cfg,
+        workspaces: session.map(s => ({ name: s.name, projects: s.projects, _accent: s._accent })),
         session: { activeWorkspace: activeWsIdx, workspaceWindows: session.map(s => s.openWindows) }
     });
 }
@@ -2051,8 +2053,8 @@ function saveSession() {
 let currentConfig = {};
 
 // ── APP CLOSING ──────────────────────────────────────────
-window.scc.onAppClosing(() => {
-    saveSession();
+window.scc.onAppClosing(async () => {
+    await saveSession();
 });
 
 // ── INIT ──────────────────────────────────────────────────
@@ -2116,6 +2118,7 @@ window.scc.onAppClosing(() => {
     if (cfg.workspaces && cfg.workspaces.length) {
         workspaces = cfg.workspaces.map(ws => ({
             name: ws.name,
+            _accent: ws._accent || null,
             projects: ws.projects || [],
             _wins: []
         }));
@@ -2343,6 +2346,26 @@ window.scc.onAppClosing(() => {
     document.getElementById('taskMonitorClose').addEventListener('click', closeTaskMonitor);
     document.getElementById('taskMonitorBtn').addEventListener('click', () => {
         taskMonitorOpen ? closeTaskMonitor() : openTaskMonitor();
+    });
+
+    document.getElementById('restoreBtn')?.addEventListener('click', async () => {
+        const latestCfg = await window.scc.readConfig();
+        const savedSession = latestCfg.session;
+        if (!savedSession?.workspaceWindows) return;
+        const wsWins = savedSession.workspaceWindows[activeWsIdx] || [];
+        wsWins.forEach(wCfg => {
+            const proj = projects.find(p => p.title === wCfg.title);
+            if (proj && !wins.find(w => w.title === wCfg.title)) {
+                mkWin({
+                    title: wCfg.title, model: wCfg.model,
+                    path: wCfg.path || proj.path,
+                    x: wCfg.x, y: wCfg.y,
+                    width: wCfg.width, height: wCfg.height,
+                    state: wCfg.state, zIndex: wCfg.zIndex
+                });
+            }
+        });
+        refreshLedger();
     });
 
     // ── CLAUDE STOP SIGNAL ───────────────────────────────────
