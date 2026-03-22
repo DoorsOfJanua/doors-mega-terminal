@@ -669,7 +669,7 @@ document.getElementById('cmdHandle').addEventListener('click',toggleCmd);
 // Scales font/padding in the center ledger. Layout reflows naturally, no overflow.
 let cmdFontSize = 12;
 function applyCmdFont() {
-    cmdFontSize = Math.max(8, Math.min(20, cmdFontSize));
+    cmdFontSize = Math.max(8, Math.min(36, cmdFontSize));
     document.getElementById('cmdCenter').style.fontSize = cmdFontSize + 'px';
 }
 document.getElementById('cmdFontDn').addEventListener('click', () => {
