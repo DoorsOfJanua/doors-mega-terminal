@@ -1154,6 +1154,84 @@ document.getElementById('shortcutReset').addEventListener('click', async () => {
 });
 document.getElementById('shortcutsBtn').addEventListener('click', openShortcutCenter);
 
+// ── KEYWORD ALERTS SETTINGS ───────────────────────────────
+function openKeywordSettings() {
+    const existing = document.getElementById('kwSettingsOverlay');
+    if (existing) { existing.remove(); return; }
+
+    const overlay = document.createElement('div'); overlay.className = 'modal-overlay'; overlay.id = 'kwSettingsOverlay';
+    const box = document.createElement('div'); box.className = 'modal-box';
+    box.style.minWidth = '280px';
+
+    const h3 = document.createElement('h3');
+    h3.style.cssText = 'margin:0 0 12px;font-size:13px;letter-spacing:0.08em;';
+    h3.textContent = 'Keyword Alerts';
+
+    const list = document.createElement('div'); list.id = 'kwRuleList';
+
+    function renderRules() {
+        while (list.firstChild) list.removeChild(list.firstChild);
+        keywordAlerts.forEach((rule, i) => {
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;';
+            const chk = document.createElement('input'); chk.type = 'checkbox'; chk.checked = rule.enabled;
+            chk.addEventListener('change', () => { rule.enabled = chk.checked; saveKeywordAlerts(); });
+            const lbl = document.createElement('span');
+            lbl.textContent = (rule.regex ? '/' : '') + rule.pattern + (rule.regex ? '/i' : '');
+            lbl.style.cssText = 'flex:1;font-size:11px;font-family:monospace;';
+            const del = document.createElement('button'); del.className = 'modal-btn'; del.textContent = '✕';
+            del.style.cssText = 'padding:1px 6px;font-size:10px;';
+            del.addEventListener('click', () => { keywordAlerts.splice(i, 1); saveKeywordAlerts(); renderRules(); });
+            row.append(chk, lbl, del);
+            list.appendChild(row);
+        });
+    }
+
+    const addRow = document.createElement('div');
+    addRow.style.cssText = 'display:flex;gap:6px;margin-top:10px;align-items:center;';
+    const inp = document.createElement('input'); inp.type = 'text'; inp.placeholder = 'pattern';
+    inp.style.cssText = 'flex:1;padding:4px 6px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:inherit;border-radius:3px;font-size:11px;';
+    const regLbl = document.createElement('label'); regLbl.style.cssText = 'font-size:10px;display:flex;align-items:center;gap:3px;';
+    const regChk = document.createElement('input'); regChk.type = 'checkbox';
+    regLbl.append(regChk, 'regex');
+    const addBtn = document.createElement('button'); addBtn.className = 'modal-btn'; addBtn.textContent = 'ADD';
+    addBtn.addEventListener('click', () => {
+        const p = inp.value.trim(); if (!p) return;
+        keywordAlerts.push({ pattern: p, regex: regChk.checked, enabled: true });
+        inp.value = ''; saveKeywordAlerts(); renderRules();
+    });
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') addBtn.click(); });
+    addRow.append(inp, regLbl, addBtn);
+
+    const closeBtn = document.createElement('button'); closeBtn.className = 'modal-btn'; closeBtn.textContent = 'CLOSE';
+    closeBtn.style.marginTop = '12px';
+    closeBtn.addEventListener('click', () => overlay.remove());
+
+    box.append(h3, list, addRow, closeBtn);
+    overlay.appendChild(box);
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+    renderRules();
+}
+
+async function saveKeywordAlerts() {
+    const cfg = await window.scc.readConfig();
+    await window.scc.writeConfig({ ...cfg, keywordAlerts });
+    getAllWinsWithWs().forEach(({ win }) => setKeywordRules(win.id, keywordAlerts));
+}
+
+{
+    const _kwBtn = document.createElement('button');
+    _kwBtn.className = 'tdm-item'; _kwBtn.textContent = 'KEYWORD ALERTS';
+    _kwBtn.addEventListener('click', () => {
+        document.getElementById('settingsMenu')?.classList.remove('show');
+        openKeywordSettings();
+    });
+    const _settingsMenu = document.getElementById('settingsMenu');
+    const _guideBtn = document.getElementById('guideBtn');
+    if (_settingsMenu && _guideBtn) _settingsMenu.insertBefore(_kwBtn, _guideBtn);
+}
+
 // ── ADD PROJECT MODAL ─────────────────────────────────────
 document.getElementById('addBtn').addEventListener('click',()=>{
     document.getElementById('modal').classList.add('show');
