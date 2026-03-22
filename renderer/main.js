@@ -28,6 +28,7 @@ function updateBudgetBar() {
   if (!wrap) return;
   const fill  = wrap.querySelector('.token-budget-fill');
   const label = wrap.querySelector('.token-budget-label');
+  if (!fill || !label) return;
   const pct = tokenBudget > 0 ? Math.min(1, tokenUsed / tokenBudget) : 0;
   fill.style.width = (pct * 100).toFixed(1) + '%';
   fill.className = 'token-budget-fill' + (pct >= 1 ? ' over' : pct >= 0.8 ? ' warn' : '');
@@ -38,11 +39,12 @@ async function addTokenCost(winId, model, inputTokens, outputTokens) {
   const cost = calcCost(inputTokens, outputTokens, model);
   winTokens.set(winId, { inputTokens, outputTokens, cost });
   const nowMonth = new Date().toISOString().slice(0, 7);
-  const cfg = await window.scc.readConfig();
-  if ((cfg.tokenMonth || '') !== nowMonth) { tokenUsed = 0; tokenMonth = nowMonth; }
-  else { tokenUsed = cfg.tokenUsed || 0; }
-  tokenBudget = cfg.tokenBudget || 500;
+  // Accumulate in-memory first (JS single-threaded, no race within sync block)
+  if (tokenMonth !== nowMonth) { tokenUsed = 0; tokenMonth = nowMonth; }
   tokenUsed += cost;
+  // Read config only for budget and to persist our in-memory tokenUsed
+  const cfg = await window.scc.readConfig();
+  tokenBudget = cfg.tokenBudget || 500;
   await window.scc.writeConfig({ ...cfg, tokenUsed, tokenMonth: nowMonth });
   updateBudgetBar();
   refreshLedger();
@@ -549,17 +551,15 @@ function mkWin(cfg) {
                     updateTaskMonitor();
                 } else {
                     targetWin.snakeState = 'alert';
-                    if (targetWin.element) {
-                        targetWin.element.dataset.snake = 'alert';
-                        clearTimeout(targetWin._alertTimer);
-                        targetWin._alertTimer = setTimeout(() => {
-                            if (targetWin.snakeState === 'alert') {
-                                targetWin.snakeState = 'running';
-                                if (targetWin.element) targetWin.element.dataset.snake = 'running';
-                                updateTaskMonitor();
-                            }
-                        }, 8000);
-                    }
+                    if (targetWin.element) targetWin.element.dataset.snake = 'alert';
+                    clearTimeout(targetWin._alertTimer);
+                    targetWin._alertTimer = setTimeout(() => {
+                        if (targetWin.snakeState === 'alert') {
+                            targetWin.snakeState = 'running';
+                            if (targetWin.element) targetWin.element.dataset.snake = 'running';
+                            updateTaskMonitor();
+                        }
+                    }, 8000);
                     playSound('done-notification.wav', 0.5);
                     updateTaskMonitor();
                 }
