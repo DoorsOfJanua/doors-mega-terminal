@@ -2107,4 +2107,17 @@ window.scc.onAppClosing(() => {
     document.getElementById('taskMonitorBtn').addEventListener('click', () => {
         taskMonitorOpen ? closeTaskMonitor() : openTaskMonitor();
     });
+
+    // ── CLAUDE STOP SIGNAL ───────────────────────────────────
+    if (window.scc && window.scc.onClaudeStop) {
+        window.scc.onClaudeStop(() => {
+            playSound(DONE_SOUNDS[0], 0.7);
+            const focused = wins.find(w => w.element && w.element.classList.contains('focused'));
+            if (focused && focused.element) {
+                focused.element.dataset.snake = 'done';
+                focused.snakeState = 'done';
+            }
+            updateTaskMonitor();
+        });
+    }
 })();
