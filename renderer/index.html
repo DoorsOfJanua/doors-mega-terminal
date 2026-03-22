@@ -46,23 +46,21 @@
             --snake-glow:   rgba(48,209,88,0.5);
         }
 
-        /* Classic: light mode (daytime) */
-        @media (prefers-color-scheme: light) {
-            body.theme-classic {
-                --bg:           #f5f5f7;
-                --panel-bg:     rgb(255,255,255);
-                --panel-border: rgba(0,0,0,0.12);
-                --text:         #1c1c1e;
-                --text-dim:     rgba(60,60,67,0.6);
-                --text-faint:   rgba(60,60,67,0.25);
-                --accent:       #007aff;
-                --accent-dim:   rgba(0,122,255,0.12);
-                --accent-faint: rgba(0,122,255,0.04);
-                --snake-color:  #34c759;
-                --snake-glow:   rgba(52,199,89,0.45);
-            }
-            body.theme-classic .nano-side { background-color: #f5f5f7; }
+        /* Classic: light mode (daytime) - toggled by JS via .theme-classic-light */
+        body.theme-classic.theme-classic-light {
+            --bg:           #f5f5f7;
+            --panel-bg:     rgb(255,255,255);
+            --panel-border: rgba(0,0,0,0.12);
+            --text:         #1c1c1e;
+            --text-dim:     rgba(60,60,67,0.6);
+            --text-faint:   rgba(60,60,67,0.25);
+            --accent:       #007aff;
+            --accent-dim:   rgba(0,122,255,0.12);
+            --accent-faint: rgba(0,122,255,0.04);
+            --snake-color:  #34c759;
+            --snake-glow:   rgba(52,199,89,0.45);
         }
+        body.theme-classic.theme-classic-light .nano-side { background-color: #f5f5f7; }
 
         body.theme-classic .panel { box-shadow: 0 1px 6px rgba(0,0,0,0.15); border-radius: 8px; }
         body.theme-classic .panel-header { border-bottom: 1px solid var(--panel-border); border-radius: 8px 8px 0 0; }
@@ -388,9 +386,27 @@
             border: 1px solid transparent; border-radius: 2px;
             cursor: pointer; white-space: nowrap;
             font-family: var(--font-ui); transition: all 0.15s;
+            position: relative; padding-right: 22px;
         }
         .ws-tab:hover { border-color: var(--accent-dim); color: var(--text); }
         .ws-tab.active { border-color: var(--accent); color: var(--accent); background: var(--accent-faint); }
+        .ws-tab.ws-alert {
+            animation: ws-tab-pulse 1.5s ease-in-out infinite;
+            border-color: var(--accent) !important;
+            color: var(--accent) !important;
+        }
+        @keyframes ws-tab-pulse {
+            0%, 100% { box-shadow: 0 0 0 0 var(--accent-dim); }
+            50%       { box-shadow: 0 0 0 4px var(--accent-dim); }
+        }
+        .ws-tab-close {
+            position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; color: var(--text-dim);
+            font-size: 10px; line-height: 1; cursor: pointer; padding: 2px 3px;
+            border-radius: 3px; opacity: 0; transition: opacity 0.15s, color 0.15s;
+        }
+        .ws-tab:hover .ws-tab-close { opacity: 1; }
+        .ws-tab-close:hover { color: #ff453a; opacity: 1 !important; }
         .ws-tab-add {
             font-size: 9px; padding: 2px 6px; color: var(--text-faint);
             background: transparent; border: 1px dashed var(--accent-dim);
@@ -408,6 +424,19 @@
 
         .tool-btn:hover { background: var(--accent-faint); color: var(--accent); border-color: var(--accent-dim); }
         .tool-btn.primary { border-color: var(--accent-dim); color: var(--accent); }
+
+        .tile-mode-menu {
+            position: fixed; z-index: 9999;
+            background: var(--panel-bg); border: 1px solid var(--panel-border);
+            border-radius: 6px; overflow: hidden; min-width: 120px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        .tile-opt {
+            display: block; width: 100%; padding: 8px 14px; background: none;
+            border: none; color: var(--text); cursor: pointer; text-align: left; font-size: 12px;
+        }
+        .tile-opt:hover { background: var(--accent-dim); }
+        .tile-opt.active { color: var(--accent); }
 
         /* ── DROPDOWN MENUS ── */
         .tool-dropdown { position: relative; }
@@ -671,6 +700,67 @@
         .color-opt { display:block; width:100%; padding:6px 12px; background:transparent; border:none; color:var(--text-dim); font-family:var(--font-ui); font-size:7px; letter-spacing:1.5px; text-align:left; cursor:pointer; }
         .color-opt:hover { background:var(--accent-dim); color:var(--text); }
         .color-opt.active { color:var(--accent); }
+
+        /* SHORTCUT CENTER */
+        .shortcut-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 0; border-bottom: 1px solid var(--panel-border);
+        }
+        .shortcut-label { font-size: 13px; color: var(--text); }
+        .shortcut-key {
+            font-family: var(--font-mono); font-size: 12px;
+            background: var(--accent-dim); color: var(--accent);
+            border: 1px solid var(--accent-dim); border-radius: 5px;
+            padding: 3px 10px; cursor: pointer; min-width: 80px; text-align: center;
+        }
+        .shortcut-key.capturing { background: var(--accent); color: var(--bg); }
+
+        /* WORKSPACE DELETE MODAL */
+        .modal-overlay {
+            position: fixed; inset: 0; z-index: 99998;
+            background: rgba(0,0,0,0.6); display: flex;
+            align-items: center; justify-content: center;
+        }
+        .modal-box {
+            background: var(--panel-bg); border: 1px solid var(--panel-border);
+            border-radius: 10px; padding: 24px 28px; min-width: 280px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+        }
+        .modal-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+        .modal-body  { font-size: 13px; color: var(--text-dim); margin-bottom: 20px; }
+        .modal-btns  { display: flex; gap: 10px; justify-content: flex-end; }
+        .modal-btn-cancel { background: var(--accent-dim); border: none; border-radius: 6px; padding: 7px 16px; color: var(--text); cursor: pointer; font-size: 13px; }
+        .modal-btn-danger { background: #ff453a; border: none; border-radius: 6px; padding: 7px 16px; color: #fff; cursor: pointer; font-size: 13px; font-weight: 600; }
+
+        /* TASK MONITOR */
+        .task-monitor {
+            position: fixed; bottom: 52px; right: 16px; z-index: 9000;
+            background: var(--panel-bg); border: 1px solid var(--panel-border);
+            border-radius: 10px; min-width: 280px; max-width: 340px;
+            max-height: 380px; overflow: hidden; display: flex; flex-direction: column;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+        }
+        .tm-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 14px; border-bottom: 1px solid var(--panel-border); flex-shrink: 0;
+        }
+        .tm-title { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--accent); }
+        .tm-close  { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 12px; }
+        .tm-list   { overflow-y: auto; padding: 6px 0; }
+        .tm-row {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 14px; cursor: pointer; transition: background 0.1s;
+        }
+        .tm-row:hover { background: var(--accent-faint); }
+        .tm-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .tm-dot.running  { background: var(--accent); animation: tm-pulse 1s infinite; }
+        .tm-dot.done     { background: #30d158; }
+        .tm-dot.failed   { background: #ff453a; }
+        @keyframes tm-pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        .tm-info  { flex: 1; min-width: 0; }
+        .tm-name  { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tm-ws    { font-size: 10px; color: var(--text-dim); }
+        .tm-empty { padding: 16px; text-align: center; color: var(--text-faint); font-size: 12px; }
     </style>
 </head>
 <body>
@@ -679,7 +769,7 @@
 <div id="cmdBar">
     <div id="cmdHandle">
         <span class="ch-title">⚡ DMT COMMAND CENTER</span>
-        <span class="ch-hint">SPACE TO TOGGLE</span>
+        <span class="ch-hint">` TO TOGGLE</span>
         <span class="ch-arrow">▲</span>
     </div>
     <div id="cmdContent">
@@ -689,12 +779,13 @@
                 <div id="workspaceTabs"></div>
                 <div class="cmd-tools">
                     <button class="tool-btn primary" id="addBtn">+ ADD</button>
-                    <button class="tool-btn" id="tileBtn">TILE</button>
+                    <button class="tool-btn" id="tileBtn">TILE</button><button id="tileModeBtn" class="tool-btn" style="padding:0 6px;font-size:9px" title="Tile mode">▾</button>
                     <button class="tool-btn" id="togglePanelsBtn" title="Toggle side panels">◧</button>
                     <button class="tool-btn" id="bgCycleBtn" title="Cycle background">BG</button>
                     <button class="tool-btn" id="quickThemeBtn" title="Cycle theme">THEME</button>
                     <button class="tool-btn" id="quickColorBtn" title="Cycle accent color">COLOR</button>
                     <button class="tool-btn" id="quickSfxBtn" title="Toggle sounds">SFX</button>
+                    <button class="tool-btn" id="taskMonitorBtn" title="Task Monitor">TASKS</button>
                     <button class="tool-btn" id="cmdFontDn" title="Zoom out">−</button>
                     <button class="tool-btn" id="cmdFontUp" title="Zoom in">+</button>
                     <div class="tool-dropdown">
@@ -753,7 +844,7 @@
         <div class="s-cols">
             <div class="s-col">
                 <div class="s-section">DMT COMMAND CENTER</div>
-                <div class="s-row"><span class="s-key">SPACE</span><span class="s-desc">Toggle command center</span></div>
+                <div class="s-row"><span class="s-key">` (backtick)</span><span class="s-desc">Toggle command center</span></div>
                 <div class="s-row"><span class="s-key">DBL-CLICK header</span><span class="s-desc">Fullscreen window</span></div>
                 <div class="s-row"><span class="s-key">ESC</span><span class="s-desc">Exit fullscreen</span></div>
                 <div class="s-row"><span class="s-key">DRAG corner/edge</span><span class="s-desc">Resize window freely</span></div>
@@ -921,6 +1012,11 @@
             <span class="app-label">Show side panels</span>
             <div class="app-toggle on" id="toggleNano"></div>
         </div>
+
+        <div class="ap-row" id="classicDayNightRow" style="display:none">
+          <span class="ap-label">Classic Mode</span>
+          <button id="classicDayNightBtn" class="ap-toggle">AUTO</button>
+        </div>
     </div>
 </div>
 
@@ -978,23 +1074,59 @@
     </div>
     <div class="guide-section">
       <h3>COMMAND CENTER</h3>
-      <p><span class="g-key">SPACE</span> toggles the command center open/closed.<br>
+      <p><span class="g-key">` (backtick)</span> toggles the command center open/closed.<br>
       <span class="g-key">− +</span> next to SETTINGS changes command center text size.<br>
       <span class="g-key">SETTINGS</span> menu has appearance, colors, sound, shortcuts, and this guide.</p>
     </div>
     <div class="guide-section">
       <h3>KEYBOARD</h3>
       <p><span class="g-key">1-9</span> focus window by number<br>
-      <span class="g-key">SPACE</span> toggle command center<br>
+      <span class="g-key">` (backtick)</span> toggle command center<br>
       <span class="g-key">Ctrl+Shift+C</span> open Claude Code in focused window</p>
     </div>
   </div>
 </div>
 
 <div id="hint">
-    SPACE = toggle command center<br>
+    ` = toggle command center<br>
     DBL-CLICK header = fullscreen · ESC = back<br>
     DRAG corners to resize · CLICK model to switch
+</div>
+
+<div id="wsDeleteModal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div class="modal-title">Remove workspace?</div>
+    <div class="modal-body">All windows in this workspace will be closed.</div>
+    <div class="modal-btns">
+      <button id="wsDeleteCancel" class="modal-btn-cancel">Cancel</button>
+      <button id="wsDeleteConfirm" class="modal-btn-danger">Remove</button>
+    </div>
+  </div>
+</div>
+
+<div id="tileModeMenu" class="tile-mode-menu" style="display:none">
+  <button class="tile-opt" data-mode="grid">Grid</button>
+  <button class="tile-opt" data-mode="horizontal">Horizontal</button>
+  <button class="tile-opt" data-mode="vertical">Vertical</button>
+</div>
+
+<div id="shortcutCenter" class="modal-overlay" style="display:none">
+  <div class="modal-box" style="min-width:360px">
+    <div class="modal-title">Shortcut Center</div>
+    <div id="shortcutList" style="margin-bottom:16px"></div>
+    <div class="modal-btns">
+      <button id="shortcutReset" class="modal-btn-cancel">Reset Defaults</button>
+      <button id="shortcutClose" class="modal-btn-cancel">Done</button>
+    </div>
+  </div>
+</div>
+
+<div id="taskMonitor" class="task-monitor" style="display:none">
+  <div class="tm-header">
+    <span class="tm-title">TASKS</span>
+    <button id="taskMonitorClose" class="tm-close">&#x2715;</button>
+  </div>
+  <div id="taskMonitorList" class="tm-list"></div>
 </div>
 
 <script type="module" src="./main.js"></script>

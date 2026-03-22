@@ -44,6 +44,24 @@ app.whenReady().then(() => {
   watchConfig(cfg => {
     if (mainWindow) mainWindow.webContents.send('config:changed', cfg);
   });
+
+  // ── CLAUDE STOP SIGNAL ───────────────────────────────────
+  const _fs   = require('fs');
+  const _os   = require('os');
+  const CLAUDE_DONE_FILE = path.join(_os.homedir(), '.spaceship', '.claude-done');
+  _fs.mkdirSync(path.dirname(CLAUDE_DONE_FILE), { recursive: true });
+  let _claudeDoneMtime = 0;
+  setInterval(() => {
+    try {
+      const mt = _fs.statSync(CLAUDE_DONE_FILE).mtimeMs;
+      if (mt > _claudeDoneMtime) {
+        _claudeDoneMtime = mt;
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('claude-stop');
+        }
+      }
+    } catch (_) { /* file doesn't exist yet - normal */ }
+  }, 1000);
 });
 
 app.on('window-all-closed', () => {

@@ -49,6 +49,37 @@ const THEME_LABELS = { 'spaceship': 'SPACESHIP', 'classic': 'CLASSIC', 'hyperspa
 
 let currentTheme = 'spaceship';
 
+// ── CLASSIC DAY/NIGHT ─────────────────────────────────────
+// Light: 06:00-19:59. Dark: 20:00-05:59. Override: null=auto, true=light, false=dark
+let classicDayNightOverride = null;
+
+function applyClassicDayNight(forceLight) {
+    if (!document.body.classList.contains('theme-classic')) {
+        document.body.classList.remove('theme-classic-light');
+        return;
+    }
+    let isLight;
+    if (forceLight !== undefined) {
+        classicDayNightOverride = forceLight;
+        isLight = forceLight;
+    } else if (classicDayNightOverride !== null) {
+        isLight = classicDayNightOverride;
+    } else {
+        const h = new Date().getHours();
+        isLight = h >= 6 && h < 20;
+    }
+    document.body.classList.toggle('theme-classic-light', isLight);
+    const btn = document.getElementById('classicDayNightBtn');
+    if (btn) btn.textContent = classicDayNightOverride === null ? 'AUTO' : (isLight ? 'LIGHT' : 'DARK');
+}
+
+function updateClassicDayNightRow() {
+    const row = document.getElementById('classicDayNightRow');
+    if (row) row.style.display = document.body.classList.contains('theme-classic') ? '' : 'none';
+}
+
+setInterval(() => { if (classicDayNightOverride === null) applyClassicDayNight(); }, 60_000);
+
 function applyTheme(theme) {
     // Preserve non-theme classes (no-scanlines, no-snake, etc.)
     const keepClasses = [];
@@ -98,6 +129,8 @@ function applyTheme(theme) {
         }
     }
     refreshAllTermThemes();
+    applyClassicDayNight();
+    updateClassicDayNightRow();
 }
 
 document.getElementById('soundBtn').addEventListener('click', async (e) => {
@@ -141,6 +174,55 @@ let dragCtx     = null; // { type:'move'|'resize', data, handle, sx,sy,ox,oy,ow,
 // Each workspace stores: { name, projects:[], winIds:[] }
 function syncProjects() { projects = workspaces[activeWsIdx]?.projects || []; }
 
+// ── TASK MONITOR (hoisted to module scope so mkWin can call updateTaskMonitor) ──
+let taskMonitorOpen = false;
+
+function openTaskMonitor()  { taskMonitorOpen = true;  document.getElementById('taskMonitor').style.display = 'flex'; updateTaskMonitor(); }
+function closeTaskMonitor() { taskMonitorOpen = false; document.getElementById('taskMonitor').style.display = 'none'; }
+
+function getAllWinsWithWs() {
+    const all = [];
+    workspaces.forEach((ws, wsIdx) => {
+        const wsWins = wsIdx === activeWsIdx ? wins : (ws._wins || []);
+        wsWins.forEach(w => all.push({ win: w, wsIdx, wsName: ws.name }));
+    });
+    return all;
+}
+
+function updateTaskMonitor() {
+    if (!taskMonitorOpen) return;
+    const list = document.getElementById('taskMonitorList');
+    while (list.firstChild) list.removeChild(list.firstChild);
+    const all = getAllWinsWithWs();
+
+    if (!all.length) {
+        const empty = document.createElement('div'); empty.className = 'tm-empty';
+        empty.textContent = 'No windows open';
+        list.appendChild(empty);
+        return;
+    }
+
+    all.forEach(({ win, wsIdx, wsName }) => {
+        const state = win.snakeState || win.element?.dataset?.snake || 'running';
+        const row  = document.createElement('div'); row.className = 'tm-row';
+        const dot  = document.createElement('div'); dot.className = 'tm-dot ' + state;
+        const info = document.createElement('div'); info.className = 'tm-info';
+        const name = document.createElement('div'); name.className = 'tm-name';
+        name.textContent = win.title || win.id;
+        const ws = document.createElement('div'); ws.className = 'tm-ws';
+        ws.textContent = wsName + (wsIdx === activeWsIdx ? ' (current)' : '');
+        info.append(name, ws);
+        row.append(dot, info);
+        row.addEventListener('click', () => {
+            switchWorkspace(wsIdx);
+            closeTaskMonitor();
+            const w = wins.find(w2 => w2.id === win.id);
+            if (w) w.element.style.zIndex = ++zTop;
+        });
+        list.appendChild(row);
+    });
+}
+
 function renderWorkspaceTabs() {
     const container = document.getElementById('workspaceTabs');
     while (container.firstChild) container.removeChild(container.firstChild);
@@ -148,13 +230,26 @@ function renderWorkspaceTabs() {
     workspaces.forEach((ws, i) => {
         const tab = document.createElement('button');
         tab.className = 'ws-tab' + (i === activeWsIdx ? ' active' : '');
-        tab.textContent = ws.name;
+        if (ws._hasAlert) tab.classList.add('ws-alert');
+
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = ws.name;
+        tab.appendChild(nameSpan);
+
+        if (workspaces.length > 1) {
+            const closeX = document.createElement('button');
+            closeX.className = 'ws-tab-close';
+            closeX.textContent = '\u2715';
+            closeX.title = 'Remove workspace';
+            closeX.addEventListener('click', (e) => {
+                e.stopPropagation();
+                confirmRemoveWorkspace(i);
+            });
+            tab.appendChild(closeX);
+        }
+
         tab.addEventListener('click', () => switchWorkspace(i));
         tab.addEventListener('dblclick', () => renameWorkspace(i));
-        tab.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            if (workspaces.length > 1) removeWorkspace(i);
-        });
         container.appendChild(tab);
     });
 
@@ -167,6 +262,7 @@ function renderWorkspaceTabs() {
 }
 
 function switchWorkspace(idx) {
+    workspaces[idx]._hasAlert = false;
     // Hide current workspace's windows
     wins.forEach(w => { if (w.element) w.element.style.display = 'none'; });
     workspaces[activeWsIdx]._wins = wins;
@@ -227,6 +323,18 @@ function removeWorkspace(idx) {
     renderWorkspaceTabs();
     refreshLedger();
     saveWorkspaces();
+}
+
+function confirmRemoveWorkspace(idx) {
+    const modal = document.getElementById('wsDeleteModal');
+    modal.style.display = 'flex';
+    const cleanup = () => modal.removeEventListener('click', onBg);
+    const onConfirm = () => { cleanup(); modal.style.display = 'none'; removeWorkspace(idx); };
+    const onCancel  = () => { cleanup(); modal.style.display = 'none'; };
+    const onBg      = (e) => { if (e.target === modal) onCancel(); };
+    document.getElementById('wsDeleteConfirm').addEventListener('click', onConfirm, { once: true });
+    document.getElementById('wsDeleteCancel').addEventListener('click', onCancel,  { once: true });
+    modal.addEventListener('click', onBg, { once: true });
 }
 
 async function saveWorkspaces() {
@@ -347,13 +455,25 @@ function mkWin(cfg) {
 
     requestAnimationFrame(() => {
         initTerminal(id, termContainer, path || '', (winId, snakeState) => {
-            const win = wins.find(w => w.id === winId);
-            if (win && win.element) {
-                win.element.dataset.snake = snakeState;
-                if (snakeState === 'done') {
-                    playSound(DONE_SOUNDS[Math.floor(Math.random() * DONE_SOUNDS.length)], 0.55);
-                }
+            let targetWsIdx = null, targetWin = null;
+            for (let i = 0; i < workspaces.length; i++) {
+                const wsWins = i === activeWsIdx ? wins : (workspaces[i]._wins || []);
+                const found = wsWins.find(w => w.id === winId);
+                if (found) { targetWsIdx = i; targetWin = found; break; }
             }
+            if (!targetWin) return;
+            targetWin.snakeState = snakeState;
+            if (targetWin.element) targetWin.element.dataset.snake = snakeState;
+
+            if (snakeState === 'done') {
+                playSound(DONE_SOUNDS[Math.floor(Math.random() * DONE_SOUNDS.length)], 0.55);
+                if (targetWsIdx !== null && targetWsIdx !== activeWsIdx) {
+                    workspaces[targetWsIdx]._hasAlert = true;
+                    renderWorkspaceTabs();
+                }
+                updateTaskMonitor();
+            }
+            if (snakeState === 'running') updateTaskMonitor();
         }).catch(err =>
             console.error('[scc] terminal init failed for', id, err)
         );
@@ -644,21 +764,77 @@ function openProjectWindow(proj) {
 }
 
 // ── TILE ──────────────────────────────────────────────────
-document.getElementById('tileBtn').addEventListener('click',()=>{
-    const n=wins.length; if(!n) return;
-    const cols=Math.ceil(Math.sqrt(n)), rows=Math.ceil(n/cols);
-    const PAD=12, W=innerWidth, H=innerHeight-240;
-    const cw=Math.floor((W-PAD*(cols+1))/cols);
-    const ch=Math.floor((H-PAD*(rows+1))/rows);
-    wins.forEach((w,i)=>{
-        const col=i%cols, row=Math.floor(i/cols);
-        if(w.state==='fullscreen') applyFS(w.element,false);
-        w.element.classList.remove('minimized');
-        w.state='normal';
-        w.x=PAD+col*(cw+PAD); w.y=PAD+row*(ch+PAD);
-        w.width=cw; w.height=ch;
-        restoreGeo(w);
+function tileWindows(mode) {
+    const visible = wins.filter(w => w.state !== 'minimized');
+    const n = visible.length;
+    if (!n) return;
+    const PAD = 12, W = innerWidth, H = innerHeight - 240;
+
+    if (mode === 'horizontal') {
+        const cw = Math.floor((W - PAD * (n + 1)) / n);
+        const ch = H - PAD * 2;
+        visible.forEach((w, i) => {
+            if (w.state === 'fullscreen') applyFS(w.element, false);
+            w.state = 'normal';
+            w.x = PAD + i * (cw + PAD); w.y = PAD;
+            w.width = cw; w.height = ch;
+            restoreGeo(w);
+        });
+    } else if (mode === 'vertical') {
+        const cw = W - PAD * 2;
+        const ch = Math.floor((H - PAD * (n + 1)) / n);
+        visible.forEach((w, i) => {
+            if (w.state === 'fullscreen') applyFS(w.element, false);
+            w.state = 'normal';
+            w.x = PAD; w.y = PAD + i * (ch + PAD);
+            w.width = cw; w.height = ch;
+            restoreGeo(w);
+        });
+    } else {
+        // grid (default)
+        const cols = Math.ceil(Math.sqrt(n)), rows = Math.ceil(n / cols);
+        const cw = Math.floor((W - PAD * (cols + 1)) / cols);
+        const ch = Math.floor((H - PAD * (rows + 1)) / rows);
+        visible.forEach((w, i) => {
+            const col = i % cols, row = Math.floor(i / cols);
+            if (w.state === 'fullscreen') applyFS(w.element, false);
+            w.state = 'normal';
+            w.x = PAD + col * (cw + PAD); w.y = PAD + row * (ch + PAD);
+            w.width = cw; w.height = ch;
+            restoreGeo(w);
+        });
+    }
+}
+
+document.getElementById('tileBtn').addEventListener('click', () => {
+    tileWindows(appSettings.tileMode || 'grid');
+});
+
+document.getElementById('tileModeBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const menu = document.getElementById('tileModeMenu');
+    const rect = e.currentTarget.getBoundingClientRect();
+    menu.style.left = rect.left + 'px';
+    menu.style.top  = (rect.top - 4) + 'px';
+    menu.style.transform = 'translateY(-100%)';
+    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    menu.querySelectorAll('.tile-opt').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === appSettings.tileMode);
     });
+});
+
+document.getElementById('tileModeMenu').addEventListener('click', async (e) => {
+    const btn = e.target.closest('.tile-opt');
+    if (!btn) return;
+    appSettings.tileMode = btn.dataset.mode;
+    document.getElementById('tileModeMenu').style.display = 'none';
+    tileWindows(appSettings.tileMode);
+    await saveAppSettings();
+});
+
+document.addEventListener('click', () => {
+    const menu = document.getElementById('tileModeMenu');
+    if (menu) menu.style.display = 'none';
 });
 
 // ── COMMAND CENTER TOGGLE ─────────────────────────────────
@@ -669,7 +845,7 @@ document.getElementById('cmdHandle').addEventListener('click',toggleCmd);
 // Scales font/padding in the center ledger. Layout reflows naturally, no overflow.
 let cmdFontSize = 12;
 function applyCmdFont() {
-    cmdFontSize = Math.max(8, Math.min(20, cmdFontSize));
+    cmdFontSize = Math.max(8, Math.min(36, cmdFontSize));
     document.getElementById('cmdCenter').style.fontSize = cmdFontSize + 'px';
 }
 document.getElementById('cmdFontDn').addEventListener('click', () => {
@@ -712,7 +888,20 @@ document.getElementById('quickSfxBtn').addEventListener('click', async () => {
 });
 
 // ── KEYBOARD ──────────────────────────────────────────────
-let claudeShortcut = { ctrl: true, shift: true, key: 'C' };
+// ── SHORTCUTS ─────────────────────────────────────────────
+const DEFAULT_SHORTCUTS = {
+    cmdToggle:  { display: 'Toggle Command Center', key: 'Backquote', mod: '' },
+    claudeOpen: { display: 'Open Claude in panel',  key: 'C',         mod: 'Ctrl+Shift' },
+};
+let shortcuts = JSON.parse(JSON.stringify(DEFAULT_SHORTCUTS));
+
+function matchShortcut(e, s) {
+    if (!s) return false;
+    return e.ctrlKey  === s.mod.includes('Ctrl')  &&
+           e.shiftKey === s.mod.includes('Shift') &&
+           e.altKey   === s.mod.includes('Alt')   &&
+           e.code === s.key;
+}
 
 // ── SIDE PANEL TOGGLE ────────────────────────────────────
 let sidePanelsVisible = true;
@@ -752,20 +941,90 @@ document.getElementById('bgCycleBtn').addEventListener('click', () => {
     document.getElementById('bgCycleBtn').textContent = bg.label;
 });
 
-document.addEventListener('keydown',e=>{
-    if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
-    if(e.code==='Space'){ e.preventDefault(); toggleCmd(); }
-    if(e.key==='Escape') { wins.filter(w=>w.state==='fullscreen').forEach(w=>toggleFS(w)); closeAbout(); }
-
-    if (e.ctrlKey  === (claudeShortcut.ctrl  || false) &&
-        e.shiftKey === (claudeShortcut.shift || false) &&
-        e.altKey   === (claudeShortcut.alt   || false) &&
-        e.key === claudeShortcut.key) {
+document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.isContentEditable) return;
+    if (matchShortcut(e, shortcuts.cmdToggle))  { e.preventDefault(); toggleCmd(); return; }
+    if (matchShortcut(e, shortcuts.claudeOpen)) {
         e.preventDefault();
         const focused = wins.find(w => w.element && w.element.classList.contains('focused'));
         if (focused) window.scc.termInput(focused.id, 'claude\n');
+        return;
+    }
+    if (e.key === 'Escape') {
+        wins.filter(w => w.state === 'fullscreen').forEach(w => toggleFS(w));
+        if (typeof closeAbout === 'function') closeAbout();
+        if (typeof closeShortcutCenter === 'function') closeShortcutCenter();
     }
 });
+
+// ── SHORTCUT CENTER ───────────────────────────────────────
+function openShortcutCenter()  { renderShortcutList(); document.getElementById('shortcutCenter').style.display = 'flex'; }
+function closeShortcutCenter() {
+    const el = document.getElementById('shortcutCenter');
+    if (el) el.style.display = 'none';
+}
+
+function formatShortcutDisplay(s) {
+    const parts = [];
+    if (s.mod.includes('Ctrl'))  parts.push('Ctrl');
+    if (s.mod.includes('Shift')) parts.push('Shift');
+    if (s.mod.includes('Alt'))   parts.push('Alt');
+    const keyLabel = s.key === 'Backquote' ? '`' : s.key === 'Space' ? 'Space' : s.key;
+    parts.push(keyLabel);
+    return parts.join('+');
+}
+
+function renderShortcutList() {
+    const list = document.getElementById('shortcutList');
+    while (list.firstChild) list.removeChild(list.firstChild);
+    Object.entries(shortcuts).forEach(([id, s]) => {
+        const row = document.createElement('div'); row.className = 'shortcut-row';
+        const label = document.createElement('span'); label.className = 'shortcut-label';
+        label.textContent = s.display;
+        const keyBtn = document.createElement('button'); keyBtn.className = 'shortcut-key';
+        keyBtn.textContent = formatShortcutDisplay(s);
+        keyBtn.addEventListener('click', () => captureShortcut(id, keyBtn));
+        row.append(label, keyBtn);
+        list.appendChild(row);
+    });
+}
+
+function captureShortcut(id, btn) {
+    btn.textContent = 'Press key...';
+    btn.classList.add('capturing');
+    const onKey = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        if (e.key === 'Escape') {
+            btn.classList.remove('capturing');
+            renderShortcutList();
+            document.removeEventListener('keydown', onKey, true);
+            return;
+        }
+        const mod = [e.ctrlKey && 'Ctrl', e.shiftKey && 'Shift', e.altKey && 'Alt'].filter(Boolean).join('+');
+        shortcuts[id] = { ...shortcuts[id], key: e.code, mod };
+        document.removeEventListener('keydown', onKey, true);
+        btn.classList.remove('capturing');
+        saveShortcuts();
+        renderShortcutList();
+    };
+    document.addEventListener('keydown', onKey, true);
+}
+
+async function saveShortcuts() {
+    const cfg = await window.scc.readConfig();
+    cfg.shortcuts = shortcuts;
+    await window.scc.writeConfig(cfg);
+}
+
+document.getElementById('shortcutCenter').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('shortcutCenter')) closeShortcutCenter();
+});
+document.getElementById('shortcutClose').addEventListener('click', closeShortcutCenter);
+document.getElementById('shortcutReset').addEventListener('click', async () => {
+    shortcuts = JSON.parse(JSON.stringify(DEFAULT_SHORTCUTS));
+    await saveShortcuts(); renderShortcutList();
+});
+document.getElementById('shortcutsBtn').addEventListener('click', openShortcutCenter);
 
 // ── ADD PROJECT MODAL ─────────────────────────────────────
 document.getElementById('addBtn').addEventListener('click',()=>{
@@ -786,10 +1045,7 @@ document.getElementById('mBrowse').addEventListener('click', async () => {
     }
 });
 
-// ── SHORTCUTS MODAL ───────────────────────────────────────
-document.getElementById('shortcutsBtn').addEventListener('click',()=>{
-    document.getElementById('shortcutsModal').classList.add('show');
-});
+// ── SHORTCUTS MODAL (static cheat sheet) ──────────────────
 document.getElementById('shortcutsClose').addEventListener('click',()=>{
     document.getElementById('shortcutsModal').classList.remove('show');
 });
@@ -801,7 +1057,8 @@ document.getElementById('shortcutsModal').addEventListener('click',e=>{
 // ── APPEARANCE MODAL ─────────────────────────────────────
 let appSettings = {
     scanlines: true, starfield: true, sounds: true, snake: true, nanoZones: true,
-    fontFamily: "'SF Mono', 'Menlo', monospace", fontSize: 15
+    fontFamily: "'SF Mono', 'Menlo', monospace", fontSize: 15,
+    tileMode: 'grid'
 };
 
 document.getElementById('appearanceBtn').addEventListener('click', () => {
@@ -915,6 +1172,11 @@ setupToggle('toggleNano', 'nanoZones', (on) => {
     });
 });
 
+document.getElementById('classicDayNightBtn').addEventListener('click', () => {
+    const isLight = document.body.classList.contains('theme-classic-light');
+    applyClassicDayNight(!isLight);
+});
+
 async function saveAppSettings() {
     const cfg = await window.scc.readConfig();
     cfg.appearance = {
@@ -924,7 +1186,8 @@ async function saveAppSettings() {
         starfield: appSettings.starfield,
         sounds: appSettings.sounds,
         snake: appSettings.snake,
-        nanoZones: appSettings.nanoZones
+        nanoZones: appSettings.nanoZones,
+        tileMode: appSettings.tileMode
     };
     await window.scc.writeConfig(cfg);
 }
@@ -1587,6 +1850,7 @@ window.scc.onAppClosing(() => {
     if (cfg.theme) {
         applyTheme(cfg.theme);
         document.getElementById('quickThemeBtn').textContent = THEME_LABELS[cfg.theme] || 'THEME';
+        applyClassicDayNight();
     }
 
     // Restore appearance settings
@@ -1599,6 +1863,7 @@ window.scc.onAppClosing(() => {
         if (a.sounds === false)     { appSettings.sounds = false; soundEnabled = false; }
         if (a.snake === false)      { appSettings.snake = false; document.body.classList.add('no-snake'); }
         if (a.nanoZones === false)   { appSettings.nanoZones = false; document.querySelectorAll('.nano-side').forEach(el => el.style.display = 'none'); }
+        if (a.tileMode) appSettings.tileMode = a.tileMode;
         applyAppFont();
     }
 
@@ -1610,15 +1875,7 @@ window.scc.onAppClosing(() => {
     const soundBtnEl = document.getElementById('soundBtn');
     if (soundBtnEl) soundBtnEl.textContent = soundEnabled ? 'SFX ON' : 'SFX OFF';
 
-    if (cfg.claudeShortcut) {
-        const parts = cfg.claudeShortcut.split('+');
-        claudeShortcut = {
-            ctrl:  parts.includes('Ctrl'),
-            shift: parts.includes('Shift'),
-            alt:   parts.includes('Alt'),
-            key:   parts[parts.length - 1]
-        };
-    }
+    if (cfg.shortcuts) Object.assign(shortcuts, cfg.shortcuts);
 
     // Load workspaces from config (fall back to legacy projects format)
     if (cfg.workspaces && cfg.workspaces.length) {
@@ -1846,4 +2103,23 @@ window.scc.onAppClosing(() => {
             triggerWarp();
         }
     });
+
+    // ── TASK MONITOR (functions defined at module scope above) ──
+    document.getElementById('taskMonitorClose').addEventListener('click', closeTaskMonitor);
+    document.getElementById('taskMonitorBtn').addEventListener('click', () => {
+        taskMonitorOpen ? closeTaskMonitor() : openTaskMonitor();
+    });
+
+    // ── CLAUDE STOP SIGNAL ───────────────────────────────────
+    if (window.scc && window.scc.onClaudeStop) {
+        window.scc.onClaudeStop(() => {
+            playSound(DONE_SOUNDS[0], 0.7);
+            const focused = wins.find(w => w.element && w.element.classList.contains('focused'));
+            if (focused && focused.element) {
+                focused.element.dataset.snake = 'done';
+                focused.snakeState = 'done';
+            }
+            updateTaskMonitor();
+        });
+    }
 })();

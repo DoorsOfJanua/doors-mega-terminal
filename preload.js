@@ -29,4 +29,7 @@ contextBridge.exposeInMainWorld('scc', {
 
   // App lifecycle
   onAppClosing: (cb) => ipcRenderer.on('app:closing', () => cb()),
+
+  // Claude stop signal
+  onClaudeStop: (cb) => ipcRenderer.on('claude-stop', cb),
 });
