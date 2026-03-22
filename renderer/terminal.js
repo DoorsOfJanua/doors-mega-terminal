@@ -8,7 +8,7 @@ const PROMPT_RE   = /[\$%#❯>]\s*$/m;
 const TOKEN_RE_A  = /Tokens?:\s*([\d,]+)\s*input,\s*([\d,]+)\s*output/i;
 const TOKEN_RE_B  = /Usage:\s*input=(\d+)\s+output=(\d+)/i;
 const APPROVAL_RE = /(\[y\/n\]|\[Y\/n\]|\(y\/n\)|Press Enter|Continue\?|\?\s*$)/im;
-const ANSI_RE     = /\x1B\[[0-9;]*[mGKHF]/g;
+const ansiRe = () => /\x1B\[[0-9;]*[mGKHF]/g;
 
 window.scc.onTermData(({ id, data }) => {
   const t = terminals.get(id);
@@ -16,10 +16,10 @@ window.scc.onTermData(({ id, data }) => {
   t.term.write(data);
 
   t.outputLen  = (t.outputLen  || 0) + data.length;
-  t.lastOutput = (t.lastOutput || '').slice(-500) + data;
-  const clean  = t.lastOutput.replace(ANSI_RE, '');
+  t.lastOutput = (t.lastOutput + data).slice(-500);
+  const clean  = t.lastOutput.replace(ansiRe(), '');
 
-  if (t.onStateChange && PROMPT_RE.test(t.lastOutput)) {
+  if (t.onStateChange && PROMPT_RE.test(clean)) {
     if (t.outputLen > 50) t.onStateChange(id, 'done');
     t.lastOutput = '';
     t.outputLen  = 0;
@@ -48,9 +48,12 @@ window.scc.onTermData(({ id, data }) => {
       for (const rule of t.keywordRules) {
         if (!rule.enabled) continue;
         try {
-          const re = rule.regex
-            ? new RegExp(rule.pattern, 'i')
-            : new RegExp(rule.pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+          if (!rule._compiled) {
+            rule._compiled = rule.regex
+              ? new RegExp(rule.pattern, 'i')
+              : new RegExp(rule.pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+          }
+          const re = rule._compiled;
           if (re.test(clean)) { t.onKeywordMatch(id, rule.pattern); break; }
         } catch (_) {}
       }
@@ -120,7 +123,7 @@ export function getLastLines(id, n) {
   const lines = [];
   for (let i = start; i < buf.length; i++) {
     const line = buf.getLine(i);
-    if (line) lines.push(line.translateToString(true).replace(ANSI_RE, ''));
+    if (line) lines.push(line.translateToString(true).replace(ansiRe(), ''));
   }
   return lines;
 }
