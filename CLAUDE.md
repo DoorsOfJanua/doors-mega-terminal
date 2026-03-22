@@ -1,47 +1,58 @@
 # spaceship-command-center CLAUDE.md
+# (GitHub repo: DoorsOfJanua/doors-mega-terminal)
 
 ## Project Purpose
-Terminal-style command center UI with workspace management, snake animation, live snake game, and customizable theming (light/dark). Inspired by retro terminal aesthetics with modern UX polish.
+Doors Mega Terminal — floating multi-window terminal manager for builders. Workspace management, snake animations, live snake game, 3 themes (Cyan Cockpit, Classic, Hyperspace), customizable theming.
 
 ## Key Architecture
-- **main.js**: Workspace CRUD, state management, snake logic (lines 130-240 workspace, 337-356 callbacks)
-- **index.html**: Snake animation CSS, DOM structure, theme application
-- **themes**: Light/dark variants (built-in), extensible for future themes
-- **constraints**: Font size max (current cap TBD), workspace rename via double-click
+- **main.js**: Electron main process — workspace CRUD, IPC handlers (pty spawn/resize/kill, config read/write, git-branch, dialog, claude-done watcher)
+- **preload.js**: contextBridge (`window.scc.*`) — all renderer↔main communication
+- **renderer/terminal.js**: xterm.js wrapper — 6-param `initTerminal`, token parsing, keyword/approval scanning, `getLastLines`, `setKeywordRules`
+- **renderer/main.js**: All UI logic — workspaces, windows, ledger, task monitor, settings panels
+- **renderer/index.html**: CSS + HTML shell
+- **config.js**: Config read/write with defaults
+- **pty-manager.js**: node-pty process management
 
-## Current Session (2026-03-22 13:07-13:25)
-Three UI features scoped for implementation:
+## Current Version: v0.2.0
 
-1. **Workspace Deletion UI** (no longer right-click)
-   - Add small X button next to workspace name
-   - Clicking X triggers confirmation popup (prevent accidental deletion)
-   - Workspace button itself still opens workspace (not tied to delete)
-   - State: Scope locked, awaiting implementation
+## Shipped Features (complete)
 
-2. **Font Size Cap Increase**
-   - Current maximum font size TBD (investigate main.js)
-   - Increase cap to allow bigger text options
-   - State: Scope TBD, awaiting investigation of current limits
+### v0.1.0 baseline
+- 3 themes: Cyan Cockpit, Classic (auto day/night), Hyperspace
+- Workspace management (add/rename/delete with confirmation)
+- Font size control (8–32px)
+- Shortcut Center modal (backtick toggle)
+- Tiling modes: Grid / Horizontal / Vertical
+- Cross-workspace tab glow + Task Monitor panel
+- Claude stop signal detection (file watcher → snake animation + sound)
+- Ledger: online/offline indicator, model sync, inline rename
 
-3. **Classic Terminal Mode**
-   - Full terminal-style aesthetic (fonts, colors, options)
-   - Mirroring Mega Terminal design language
-   - **PENDING DECISION**: Theme architecture
-     - Option A: Two separate themes (Classic Light, Classic Dark) in theme picker
-     - Option B: Single Classic theme with light/dark toggle
-   - State: Design decision pending before implementation
+### v0.2.0 — Feature Pack 2 (2026-03-22)
+1. **Token/Cost Tracker**: parses Claude Code terminal output (`Tokens: N input, N output`), calculates API-equivalent cost (Haiku/Sonnet/Opus rates), per-window cost in ledger, monthly budget bar in toolbar with warn/over states
+2. **Keyword Alerts**: settings panel (add/toggle/delete rules, regex support), scans terminal output, red flash border + sound, default rules: error/failed/fatal/ENOENT
+3. **Git Branch in Ledger**: IPC via `execFile` (no shell injection), shown per window, refreshed on open and focus
+4. **Session Restore**: async `saveSession` (reads config fresh), RESTORE button in toolbar, `_accent` persisted
+5. **Per-Workspace Accent**: 8 preset colors, CSS var injection (`--accent`, `--accent-glow`, `--accent-dim`, `--accent-faint`), color dot per workspace tab
+6. **Auto-Detect Needs-Input**: yellow pulsing border + distinct sound on `[y/n]`/`?`/`Press Enter`/`Continue?`, resets on keyboard input
+7. **Ask Claude button**: grabs last 50 clean terminal lines, sends to existing Claude panel in same dir (or opens new one)
 
 ## NEXT TASKS
+- [ ] Build v0.2.0 DMG (`npm run dist`)
+- [ ] Write README for GitHub
+- [ ] Attach DMG to GitHub Releases
+- [ ] Add to Doors of Janua Apps page
+- [ ] Consider renaming local folder `spaceship-command-center` → `doors-mega-terminal` (needs path migration)
 
-- [ ] (Sonnet) Clarify classic mode theme architecture with user (separate themes vs toggle)
-- [ ] (Sonnet) Investigate current font size max in main.js, propose new cap
-- [ ] (Sonnet) Implement workspace X button delete UI + confirmation dialog
-- [ ] (Sonnet) Build classic terminal mode CSS (fonts, colors, retro styling)
-- [ ] (Sonnet) Add theme toggle or picker for classic light/dark variants
-- [ ] (Sonnet) Test snake animation in classic mode across both variants
+## Deferred (explicitly acknowledged, don't build yet)
+- Split pane (equivalent effort to all other features combined)
+- Command history search (global across windows)
+- Terminal tabs inside panel
+- Broadcast mode
+- Command macros
+- Workspace layout presets
 
 ## Notes
-- Session ended at clarification point - user asked for theme architecture confirmation
-- Codebase well-structured, workspace/animation logic isolated
-- Low risk feature set, existing patterns can be extended
-- Classic mode is aesthetic enhancement, no protocol changes needed
+- Tests: 14/14 passing (`npm test`)
+- Git history clean, repo safe for public distribution
+- Local path: `/Users/janua/Projects/spaceship-command-center`
+- GitHub: `https://github.com/DoorsOfJanua/doors-mega-terminal`
