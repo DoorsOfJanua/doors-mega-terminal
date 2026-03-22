@@ -148,13 +148,26 @@ function renderWorkspaceTabs() {
     workspaces.forEach((ws, i) => {
         const tab = document.createElement('button');
         tab.className = 'ws-tab' + (i === activeWsIdx ? ' active' : '');
-        tab.textContent = ws.name;
+        if (ws._hasAlert) tab.classList.add('ws-alert');
+
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = ws.name;
+        tab.appendChild(nameSpan);
+
+        if (workspaces.length > 1) {
+            const closeX = document.createElement('button');
+            closeX.className = 'ws-tab-close';
+            closeX.textContent = '\u2715';
+            closeX.title = 'Remove workspace';
+            closeX.addEventListener('click', (e) => {
+                e.stopPropagation();
+                confirmRemoveWorkspace(i);
+            });
+            tab.appendChild(closeX);
+        }
+
         tab.addEventListener('click', () => switchWorkspace(i));
         tab.addEventListener('dblclick', () => renameWorkspace(i));
-        tab.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            if (workspaces.length > 1) removeWorkspace(i);
-        });
         container.appendChild(tab);
     });
 
@@ -227,6 +240,17 @@ function removeWorkspace(idx) {
     renderWorkspaceTabs();
     refreshLedger();
     saveWorkspaces();
+}
+
+function confirmRemoveWorkspace(idx) {
+    const modal = document.getElementById('wsDeleteModal');
+    modal.style.display = 'flex';
+    const onConfirm = () => { modal.style.display = 'none'; removeWorkspace(idx); };
+    const onCancel  = () => { modal.style.display = 'none'; };
+    const onBg      = (e) => { if (e.target === modal) onCancel(); };
+    document.getElementById('wsDeleteConfirm').addEventListener('click', onConfirm, { once: true });
+    document.getElementById('wsDeleteCancel').addEventListener('click', onCancel,  { once: true });
+    modal.addEventListener('click', onBg, { once: true });
 }
 
 async function saveWorkspaces() {
