@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "DMT — Doors Mega Terminal. A floating multi-window terminal manager for builders.",
   "main": "main.js",
-  "author": "Janua <>",
+  "author": "Janua",
   "license": "MIT",
   "scripts": {
     "dev": "concurrently -k \"vite build --watch\" \"wait-on renderer/dist/index.html && electron .\"",
