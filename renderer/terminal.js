@@ -4,28 +4,56 @@ import '@xterm/xterm/css/xterm.css';
 
 const terminals = new Map();
 
-// Prompt patterns: common shells
-const PROMPT_RE = /[\$%#❯>]\s*$/m;
+const PROMPT_RE   = /[\$%#❯>]\s*$/m;
+const TOKEN_RE_A  = /Tokens?:\s*([\d,]+)\s*input,\s*([\d,]+)\s*output/i;
+const TOKEN_RE_B  = /Usage:\s*input=(\d+)\s+output=(\d+)/i;
+const APPROVAL_RE = /(\[y\/n\]|\[Y\/n\]|\(y\/n\)|Press Enter|Continue\?|\?\s*$)/im;
+const ANSI_RE     = /\x1B\[[0-9;]*[mGKHF]/g;
 
-// Route all pty output to the correct xterm instance.
-// Registered once at module load — survives for the page lifetime.
 window.scc.onTermData(({ id, data }) => {
   const t = terminals.get(id);
   if (!t) return;
   t.term.write(data);
 
-  // Detect shell prompt in output → mark window as done
-  // Only fire if there was real command output (not just a prompt redraw from resize)
-  if (t.onStateChange) {
-    t.outputLen = (t.outputLen || 0) + data.length;
-    t.lastOutput = (t.lastOutput || '').slice(-200) + data;
-    if (PROMPT_RE.test(t.lastOutput)) {
-      // Only trigger 'done' if we received substantial output (a real command ran)
-      if (t.outputLen > 50) {
-        t.onStateChange(id, 'done');
+  t.outputLen  = (t.outputLen  || 0) + data.length;
+  t.lastOutput = (t.lastOutput || '').slice(-500) + data;
+  const clean  = t.lastOutput.replace(ANSI_RE, '');
+
+  if (t.onStateChange && PROMPT_RE.test(t.lastOutput)) {
+    if (t.outputLen > 50) t.onStateChange(id, 'done');
+    t.lastOutput = '';
+    t.outputLen  = 0;
+  }
+
+  if (t.onTokenData) {
+    const mA = TOKEN_RE_A.exec(clean);
+    const mB = !mA && TOKEN_RE_B.exec(clean);
+    const m  = mA || mB;
+    if (m) {
+      const i = parseInt(m[1].replace(/,/g, ''), 10);
+      const o = parseInt(m[2].replace(/,/g, ''), 10);
+      if (!isNaN(i) && !isNaN(o)) t.onTokenData(id, { inputTokens: i, outputTokens: o });
+    }
+  }
+
+  if (t.onKeywordMatch) {
+    if (APPROVAL_RE.test(clean)) {
+      const now = Date.now();
+      if (!t._lastApproval || now - t._lastApproval > 3000) {
+        t._lastApproval = now;
+        t.onKeywordMatch(id, '__approval__');
       }
-      t.lastOutput = '';
-      t.outputLen = 0;
+    }
+    if (t.keywordRules) {
+      for (const rule of t.keywordRules) {
+        if (!rule.enabled) continue;
+        try {
+          const re = rule.regex
+            ? new RegExp(rule.pattern, 'i')
+            : new RegExp(rule.pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+          if (re.test(clean)) { t.onKeywordMatch(id, rule.pattern); break; }
+        } catch (_) {}
+      }
     }
   }
 });
@@ -42,7 +70,6 @@ function getTermTheme() {
   if (document.body.classList.contains('theme-hyperspace')) {
     return { background: '#0a0012', foreground: '#e0a0ff', cursor: '#ff00ff', selectionBackground: 'rgba(255,0,255,0.2)' };
   }
-  // spaceship (default)
   return { background: '#000e1a', foreground: '#00ff88', cursor: '#00ffcc', selectionBackground: 'rgba(0,255,200,0.3)' };
 }
 
@@ -51,40 +78,51 @@ export function refreshAllTermThemes() {
   terminals.forEach(t => { t.term.options.theme = theme; });
 }
 
-export async function initTerminal(id, container, projectPath, onStateChange) {
+export async function initTerminal(id, container, projectPath, onStateChange, onTokenData, onKeywordMatch) {
   const term = new Terminal({
     fontFamily: '"SF Mono", "Menlo", "Courier New", monospace',
     fontSize: DEFAULT_FONT_SIZE,
     theme: getTermTheme(),
     cursorBlink: true
   });
-
   const fit = new FitAddon();
   term.loadAddon(fit);
   term.open(container);
   fit.fit();
-
-  // Spawn pty FIRST, then attach resize observer to avoid resize-before-spawn race
   await window.scc.termSpawn(id, projectPath);
   window.scc.termResize(id, term.cols, term.rows);
-
   const resizeObserver = new ResizeObserver(() => {
     fit.fit();
     window.scc.termResize(id, term.cols, term.rows);
   });
   resizeObserver.observe(container);
-
   term.onData(data => {
     window.scc.termInput(id, data);
-    // User typed → process is running again, reset output tracking
     const entry = terminals.get(id);
     if (entry) {
       entry.outputLen = 0;
       if (entry.onStateChange) entry.onStateChange(id, 'running');
     }
   });
+  terminals.set(id, { term, fit, resizeObserver, onStateChange, onTokenData, onKeywordMatch, lastOutput: '', keywordRules: [] });
+}
 
-  terminals.set(id, { term, fit, resizeObserver, onStateChange, lastOutput: '' });
+export function setKeywordRules(id, rules) {
+  const t = terminals.get(id);
+  if (t) t.keywordRules = rules || [];
+}
+
+export function getLastLines(id, n) {
+  const t = terminals.get(id);
+  if (!t) return [];
+  const buf = t.term.buffer.active;
+  const start = Math.max(0, buf.length - n);
+  const lines = [];
+  for (let i = start; i < buf.length; i++) {
+    const line = buf.getLine(i);
+    if (line) lines.push(line.translateToString(true).replace(ANSI_RE, ''));
+  }
+  return lines;
 }
 
 export function resizeTerminalFont(id, delta) {
