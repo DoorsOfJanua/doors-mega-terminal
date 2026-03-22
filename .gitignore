@@ -3,3 +3,4 @@ dist/
 renderer/dist/
 .DS_Store
 *.log
+.worktrees/
