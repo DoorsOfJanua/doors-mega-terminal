@@ -4,6 +4,16 @@ import { initTerminal, destroyTerminal, resizeTerminalFont, refreshAllTermThemes
 const DONE_SOUNDS = ['done-boing.wav', 'done-notification.wav', 'done-coin.wav'];
 const APPROVAL_SOUND = 'done-notification.wav';
 
+// ── CONFIG WRITE QUEUE (prevents concurrent read-modify-write clobber) ────
+let _cfgQ = Promise.resolve();
+function patchConfig(patchFn) {
+    _cfgQ = _cfgQ.then(async () => {
+        const cfg = await window.scc.readConfig();
+        await window.scc.writeConfig(patchFn(cfg));
+    });
+    return _cfgQ;
+}
+
 // ── TOKEN TRACKER ─────────────────────────────────────────
 const winTokens = new Map(); // id → { inputTokens, outputTokens, cost }
 const winBranch = new Map(); // id → branch string (for Task 7)
@@ -42,10 +52,11 @@ async function addTokenCost(winId, model, inputTokens, outputTokens) {
   // Accumulate in-memory first (JS single-threaded, no race within sync block)
   if (tokenMonth !== nowMonth) { tokenUsed = 0; tokenMonth = nowMonth; }
   tokenUsed += cost;
-  // Read config only for budget and to persist our in-memory tokenUsed
-  const cfg = await window.scc.readConfig();
-  tokenBudget = cfg.tokenBudget || 500;
-  await window.scc.writeConfig({ ...cfg, tokenUsed, tokenMonth: nowMonth });
+  const _month = nowMonth, _used = tokenUsed;
+  await patchConfig(cfg => {
+    tokenBudget = cfg.tokenBudget || 500;
+    return { ...cfg, tokenUsed: _used, tokenMonth: _month };
+  });
   updateBudgetBar();
   refreshLedger();
 }
@@ -452,14 +463,13 @@ function confirmRemoveWorkspace(idx) {
     modal.addEventListener('click', onBg, { once: true });
 }
 
-async function saveWorkspaces() {
-    const cfg = await window.scc.readConfig();
-    cfg.workspaces = workspaces.map(ws => ({
+function saveWorkspaces() {
+    const snapshot = workspaces.map(ws => ({
         name: ws.name,
         _accent: ws._accent || null,
         projects: ws.projects.map(p => ({ title: p.title, path: p.path || '', model: p.model }))
     }));
-    await window.scc.writeConfig(cfg);
+    return patchConfig(cfg => ({ ...cfg, workspaces: snapshot }));
 }
 
 // ── HELPERS ──────────────────────────────────────────────
@@ -547,7 +557,7 @@ function mkWin(cfg) {
         const prompt = `Here is my terminal output:\n\n${context}\n\nWhat is happening?\n`;
 
         const allWins = getAllWinsWithWs().map(e => e.win);
-        const claudeWin = allWins.find(w => w.id !== id && w.path === path);
+        const claudeWin = allWins.find(w => w.id !== id && w.path === path && /claude/i.test(w.title));
 
         if (claudeWin) {
             focus(claudeWin);
@@ -1311,10 +1321,10 @@ function openKeywordSettings() {
     renderRules();
 }
 
-async function saveKeywordAlerts() {
-    const cfg = await window.scc.readConfig();
-    await window.scc.writeConfig({ ...cfg, keywordAlerts });
-    getAllWinsWithWs().forEach(({ win }) => setKeywordRules(win.id, keywordAlerts));
+function saveKeywordAlerts() {
+    const snapshot = keywordAlerts.slice();
+    getAllWinsWithWs().forEach(({ win }) => setKeywordRules(win.id, snapshot));
+    return patchConfig(cfg => ({ ...cfg, keywordAlerts: snapshot }));
 }
 
 {
@@ -1480,9 +1490,8 @@ document.getElementById('classicDayNightBtn').addEventListener('click', () => {
     applyClassicDayNight(!isLight);
 });
 
-async function saveAppSettings() {
-    const cfg = await window.scc.readConfig();
-    cfg.appearance = {
+function saveAppSettings() {
+    const appearance = {
         fontFamily: appSettings.fontFamily,
         fontSize: appSettings.fontSize,
         scanlines: appSettings.scanlines,
@@ -1492,7 +1501,7 @@ async function saveAppSettings() {
         nanoZones: appSettings.nanoZones,
         tileMode: appSettings.tileMode
     };
-    await window.scc.writeConfig(cfg);
+    return patchConfig(cfg => ({ ...cfg, appearance }));
 }
 
 // ── ABOUT MODAL ───────────────────────────────────────────
@@ -2114,9 +2123,8 @@ createNanoAnimation('nanoLeft', 'nanoLeftMode', 'panel');
 createNanoAnimation('nanoRight', 'nanoRightMode', 'panel');
 
 // ── SESSION SAVE/RESTORE ─────────────────────────────────
-async function saveSession() {
-    const cfg = await window.scc.readConfig();
-    const session = workspaces.map((ws, i) => {
+function saveSession() {
+    const snapshot = workspaces.map((ws, i) => {
         const wsWins = (i === activeWsIdx) ? wins : (ws._wins || []);
         return {
             name: ws.name,
@@ -2129,11 +2137,12 @@ async function saveSession() {
             }))
         };
     });
-    await window.scc.writeConfig({
+    const _activeWsIdx = activeWsIdx;
+    return patchConfig(cfg => ({
         ...cfg,
-        workspaces: session.map(s => ({ name: s.name, projects: s.projects, _accent: s._accent })),
-        session: { activeWorkspace: activeWsIdx, workspaceWindows: session.map(s => s.openWindows) }
-    });
+        workspaces: snapshot.map(s => ({ name: s.name, projects: s.projects, _accent: s._accent })),
+        session: { activeWorkspace: _activeWsIdx, workspaceWindows: snapshot.map(s => s.openWindows) }
+    }));
 }
 
 let currentConfig = {};
@@ -2232,14 +2241,13 @@ window.scc.onAppClosing(async () => {
     // Restore open windows for current workspace
     if (session && session.workspaceWindows && session.workspaceWindows[activeWsIdx]) {
         session.workspaceWindows[activeWsIdx].forEach(wCfg => {
-            const proj = projects.find(p => p.title === wCfg.title);
-            if (proj) {
-                mkWin({
-                    title: wCfg.title, model: wCfg.model, path: wCfg.path || proj.path,
-                    x: wCfg.x, y: wCfg.y, width: wCfg.width, height: wCfg.height,
-                    state: wCfg.state, zIndex: wCfg.zIndex
-                });
-            }
+            const resolvedPath = wCfg.path || projects.find(p => p.title === wCfg.title)?.path;
+            if (!resolvedPath) return;
+            mkWin({
+                title: wCfg.title, model: wCfg.model, path: resolvedPath,
+                x: wCfg.x, y: wCfg.y, width: wCfg.width, height: wCfg.height,
+                state: wCfg.state, zIndex: wCfg.zIndex
+            });
         });
         refreshLedger();
     }
@@ -2444,16 +2452,17 @@ window.scc.onAppClosing(async () => {
         if (!savedSession?.workspaceWindows) return;
         const wsWins = savedSession.workspaceWindows[activeWsIdx] || [];
         wsWins.forEach(wCfg => {
-            const proj = projects.find(p => p.title === wCfg.title);
-            if (proj && !wins.find(w => w.title === wCfg.title)) {
-                mkWin({
-                    title: wCfg.title, model: wCfg.model,
-                    path: wCfg.path || proj.path,
-                    x: wCfg.x, y: wCfg.y,
-                    width: wCfg.width, height: wCfg.height,
-                    state: wCfg.state, zIndex: wCfg.zIndex
-                });
-            }
+            const resolvedPath = wCfg.path || projects.find(p => p.title === wCfg.title)?.path;
+            if (!resolvedPath) return;
+            const alreadyOpen = wins.find(w => (w.path && w.path === resolvedPath) || w.title === wCfg.title);
+            if (alreadyOpen) return;
+            mkWin({
+                title: wCfg.title, model: wCfg.model,
+                path: resolvedPath,
+                x: wCfg.x, y: wCfg.y,
+                width: wCfg.width, height: wCfg.height,
+                state: wCfg.state, zIndex: wCfg.zIndex
+            });
         });
         refreshLedger();
     });
