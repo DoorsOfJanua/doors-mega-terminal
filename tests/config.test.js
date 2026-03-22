@@ -44,3 +44,20 @@ test('readConfig returns defaults when file contains invalid JSON', () => {
   const result = cfg.readConfig();
   expect(result).toEqual(DEFAULT_CONFIG);
 });
+
+test('tokenBudget defaults to 500', () => {
+  const result = cfg.readConfig();
+  expect(result.tokenBudget).toBe(500);
+});
+
+test('keywordAlerts defaults to 4 rules', () => {
+  const result = cfg.readConfig();
+  expect(result.keywordAlerts).toHaveLength(4);
+  expect(result.keywordAlerts[0].pattern).toBe('error');
+});
+
+test('writeConfig persists tokenBudget', () => {
+  cfg.writeConfig({ tokenBudget: 999 });
+  const result = cfg.readConfig();
+  expect(result.tokenBudget).toBe(999);
+});

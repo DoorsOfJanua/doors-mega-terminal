@@ -7,7 +7,16 @@ const DEFAULT_CONFIG = {
   claudeShortcut: 'Ctrl+Shift+C',
   theme: 'cyan-cockpit',
   soundEnabled: true,
-  projects: []
+  projects: [],
+  tokenBudget: 500,
+  tokenMonth: '',
+  tokenUsed: 0,
+  keywordAlerts: [
+    { pattern: 'error',  regex: false, enabled: true },
+    { pattern: 'failed', regex: false, enabled: true },
+    { pattern: 'fatal',  regex: false, enabled: true },
+    { pattern: 'ENOENT', regex: false, enabled: true }
+  ]
 };
 
 function createConfig(configPath) {
