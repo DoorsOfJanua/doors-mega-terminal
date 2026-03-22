@@ -536,13 +536,39 @@ function mkWin(cfg) {
         sendTerminalInput(id, 'claude\n');
     });
 
+    const askBtn = document.createElement('button');
+    askBtn.className = 'ph-ask-btn';
+    askBtn.textContent = '?';
+    askBtn.title = 'Ask Claude about this terminal output';
+    askBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        const lines = getLastLines(id, 50);
+        const context = lines.filter(l => l.trim()).join('\n');
+        const prompt = `Here is my terminal output:\n\n${context}\n\nWhat is happening?\n`;
+
+        const allWins = getAllWinsWithWs().map(e => e.win);
+        const claudeWin = allWins.find(w => w.id !== id && w.path === path);
+
+        if (claudeWin) {
+            focus(claudeWin);
+            sendTerminalInput(claudeWin.id, prompt);
+        } else {
+            const newWin = mkWin({
+                title: title + ' (claude)', model: 'Sonnet',
+                path, x: x + 40, y: y + 40, width, height
+            });
+            setTimeout(() => sendTerminalInput(newWin.id, 'claude\n'), 500);
+            setTimeout(() => sendTerminalInput(newWin.id, prompt), 1500);
+        }
+    });
+
     const btns = document.createElement('div'); btns.className = 'ph-btns';
     const fontDn   = mkPB('−','pb font-dn','Smaller font');
     const fontUp   = mkPB('+','pb font-up','Bigger font');
     const minBtn   = mkPB('_','pb min','Minimise');
     const maxBtn   = mkPB('□','pb max','Fullscreen');
     const closeBtn = mkPB('✕','pb close','Close');
-    btns.append(claudeBtn, fontDn, fontUp, minBtn, maxBtn, closeBtn);
+    btns.append(claudeBtn, askBtn, fontDn, fontUp, minBtn, maxBtn, closeBtn);
     hdr.append(dot, titleEl, modelWrap, btns);
 
     // Body
