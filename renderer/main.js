@@ -174,6 +174,55 @@ let dragCtx     = null; // { type:'move'|'resize', data, handle, sx,sy,ox,oy,ow,
 // Each workspace stores: { name, projects:[], winIds:[] }
 function syncProjects() { projects = workspaces[activeWsIdx]?.projects || []; }
 
+// ── TASK MONITOR (hoisted to module scope so mkWin can call updateTaskMonitor) ──
+let taskMonitorOpen = false;
+
+function openTaskMonitor()  { taskMonitorOpen = true;  document.getElementById('taskMonitor').style.display = 'flex'; updateTaskMonitor(); }
+function closeTaskMonitor() { taskMonitorOpen = false; document.getElementById('taskMonitor').style.display = 'none'; }
+
+function getAllWinsWithWs() {
+    const all = [];
+    workspaces.forEach((ws, wsIdx) => {
+        const wsWins = wsIdx === activeWsIdx ? wins : (ws._wins || []);
+        wsWins.forEach(w => all.push({ win: w, wsIdx, wsName: ws.name }));
+    });
+    return all;
+}
+
+function updateTaskMonitor() {
+    if (!taskMonitorOpen) return;
+    const list = document.getElementById('taskMonitorList');
+    while (list.firstChild) list.removeChild(list.firstChild);
+    const all = getAllWinsWithWs();
+
+    if (!all.length) {
+        const empty = document.createElement('div'); empty.className = 'tm-empty';
+        empty.textContent = 'No windows open';
+        list.appendChild(empty);
+        return;
+    }
+
+    all.forEach(({ win, wsIdx, wsName }) => {
+        const state = win.snakeState || win.element?.dataset?.snake || 'running';
+        const row  = document.createElement('div'); row.className = 'tm-row';
+        const dot  = document.createElement('div'); dot.className = 'tm-dot ' + state;
+        const info = document.createElement('div'); info.className = 'tm-info';
+        const name = document.createElement('div'); name.className = 'tm-name';
+        name.textContent = win.title || win.id;
+        const ws = document.createElement('div'); ws.className = 'tm-ws';
+        ws.textContent = wsName + (wsIdx === activeWsIdx ? ' (current)' : '');
+        info.append(name, ws);
+        row.append(dot, info);
+        row.addEventListener('click', () => {
+            switchWorkspace(wsIdx);
+            closeTaskMonitor();
+            const w = wins.find(w2 => w2.id === win.id);
+            if (w) w.element.style.zIndex = ++zTop;
+        });
+        list.appendChild(row);
+    });
+}
+
 function renderWorkspaceTabs() {
     const container = document.getElementById('workspaceTabs');
     while (container.firstChild) container.removeChild(container.firstChild);
@@ -279,8 +328,9 @@ function removeWorkspace(idx) {
 function confirmRemoveWorkspace(idx) {
     const modal = document.getElementById('wsDeleteModal');
     modal.style.display = 'flex';
-    const onConfirm = () => { modal.style.display = 'none'; removeWorkspace(idx); };
-    const onCancel  = () => { modal.style.display = 'none'; };
+    const cleanup = () => modal.removeEventListener('click', onBg);
+    const onConfirm = () => { cleanup(); modal.style.display = 'none'; removeWorkspace(idx); };
+    const onCancel  = () => { cleanup(); modal.style.display = 'none'; };
     const onBg      = (e) => { if (e.target === modal) onCancel(); };
     document.getElementById('wsDeleteConfirm').addEventListener('click', onConfirm, { once: true });
     document.getElementById('wsDeleteCancel').addEventListener('click', onCancel,  { once: true });
@@ -2054,55 +2104,7 @@ window.scc.onAppClosing(() => {
         }
     });
 
-    // ── TASK MONITOR ──────────────────────────────────────────
-    let taskMonitorOpen = false;
-
-    function openTaskMonitor()  { taskMonitorOpen = true;  document.getElementById('taskMonitor').style.display = 'flex'; updateTaskMonitor(); }
-    function closeTaskMonitor() { taskMonitorOpen = false; document.getElementById('taskMonitor').style.display = 'none'; }
-
-    function getAllWinsWithWs() {
-        const all = [];
-        workspaces.forEach((ws, wsIdx) => {
-            const wsWins = wsIdx === activeWsIdx ? wins : (ws._wins || []);
-            wsWins.forEach(w => all.push({ win: w, wsIdx, wsName: ws.name }));
-        });
-        return all;
-    }
-
-    function updateTaskMonitor() {
-        if (!taskMonitorOpen) return;
-        const list = document.getElementById('taskMonitorList');
-        while (list.firstChild) list.removeChild(list.firstChild);
-        const all = getAllWinsWithWs();
-
-        if (!all.length) {
-            const empty = document.createElement('div'); empty.className = 'tm-empty';
-            empty.textContent = 'No windows open';
-            list.appendChild(empty);
-            return;
-        }
-
-        all.forEach(({ win, wsIdx, wsName }) => {
-            const state = win.snakeState || win.element?.dataset?.snake || 'running';
-            const row  = document.createElement('div'); row.className = 'tm-row';
-            const dot  = document.createElement('div'); dot.className = 'tm-dot ' + state;
-            const info = document.createElement('div'); info.className = 'tm-info';
-            const name = document.createElement('div'); name.className = 'tm-name';
-            name.textContent = win.title || win.id;
-            const ws = document.createElement('div'); ws.className = 'tm-ws';
-            ws.textContent = wsName + (wsIdx === activeWsIdx ? ' (current)' : '');
-            info.append(name, ws);
-            row.append(dot, info);
-            row.addEventListener('click', () => {
-                switchWorkspace(wsIdx);
-                closeTaskMonitor();
-                const w = wins.find(w2 => w2.id === win.id);
-                if (w) w.element.style.zIndex = ++zTop;
-            });
-            list.appendChild(row);
-        });
-    }
-
+    // ── TASK MONITOR (functions defined at module scope above) ──
     document.getElementById('taskMonitorClose').addEventListener('click', closeTaskMonitor);
     document.getElementById('taskMonitorBtn').addEventListener('click', () => {
         taskMonitorOpen ? closeTaskMonitor() : openTaskMonitor();
