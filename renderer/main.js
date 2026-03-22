@@ -701,21 +701,77 @@ function openProjectWindow(proj) {
 }
 
 // ── TILE ──────────────────────────────────────────────────
-document.getElementById('tileBtn').addEventListener('click',()=>{
-    const n=wins.length; if(!n) return;
-    const cols=Math.ceil(Math.sqrt(n)), rows=Math.ceil(n/cols);
-    const PAD=12, W=innerWidth, H=innerHeight-240;
-    const cw=Math.floor((W-PAD*(cols+1))/cols);
-    const ch=Math.floor((H-PAD*(rows+1))/rows);
-    wins.forEach((w,i)=>{
-        const col=i%cols, row=Math.floor(i/cols);
-        if(w.state==='fullscreen') applyFS(w.element,false);
-        w.element.classList.remove('minimized');
-        w.state='normal';
-        w.x=PAD+col*(cw+PAD); w.y=PAD+row*(ch+PAD);
-        w.width=cw; w.height=ch;
-        restoreGeo(w);
+function tileWindows(mode) {
+    const visible = wins.filter(w => w.state !== 'minimized');
+    const n = visible.length;
+    if (!n) return;
+    const PAD = 12, W = innerWidth, H = innerHeight - 240;
+
+    if (mode === 'horizontal') {
+        const cw = Math.floor((W - PAD * (n + 1)) / n);
+        const ch = H - PAD * 2;
+        visible.forEach((w, i) => {
+            if (w.state === 'fullscreen') applyFS(w.element, false);
+            w.state = 'normal';
+            w.x = PAD + i * (cw + PAD); w.y = PAD;
+            w.width = cw; w.height = ch;
+            restoreGeo(w);
+        });
+    } else if (mode === 'vertical') {
+        const cw = W - PAD * 2;
+        const ch = Math.floor((H - PAD * (n + 1)) / n);
+        visible.forEach((w, i) => {
+            if (w.state === 'fullscreen') applyFS(w.element, false);
+            w.state = 'normal';
+            w.x = PAD; w.y = PAD + i * (ch + PAD);
+            w.width = cw; w.height = ch;
+            restoreGeo(w);
+        });
+    } else {
+        // grid (default)
+        const cols = Math.ceil(Math.sqrt(n)), rows = Math.ceil(n / cols);
+        const cw = Math.floor((W - PAD * (cols + 1)) / cols);
+        const ch = Math.floor((H - PAD * (rows + 1)) / rows);
+        visible.forEach((w, i) => {
+            const col = i % cols, row = Math.floor(i / cols);
+            if (w.state === 'fullscreen') applyFS(w.element, false);
+            w.state = 'normal';
+            w.x = PAD + col * (cw + PAD); w.y = PAD + row * (ch + PAD);
+            w.width = cw; w.height = ch;
+            restoreGeo(w);
+        });
+    }
+}
+
+document.getElementById('tileBtn').addEventListener('click', () => {
+    tileWindows(appSettings.tileMode || 'grid');
+});
+
+document.getElementById('tileModeBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const menu = document.getElementById('tileModeMenu');
+    const rect = e.currentTarget.getBoundingClientRect();
+    menu.style.left = rect.left + 'px';
+    menu.style.top  = (rect.top - 4) + 'px';
+    menu.style.transform = 'translateY(-100%)';
+    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    menu.querySelectorAll('.tile-opt').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === appSettings.tileMode);
     });
+});
+
+document.getElementById('tileModeMenu').addEventListener('click', async (e) => {
+    const btn = e.target.closest('.tile-opt');
+    if (!btn) return;
+    appSettings.tileMode = btn.dataset.mode;
+    document.getElementById('tileModeMenu').style.display = 'none';
+    tileWindows(appSettings.tileMode);
+    await saveAppSettings();
+});
+
+document.addEventListener('click', () => {
+    const menu = document.getElementById('tileModeMenu');
+    if (menu) menu.style.display = 'none';
 });
 
 // ── COMMAND CENTER TOGGLE ─────────────────────────────────
@@ -858,7 +914,8 @@ document.getElementById('shortcutsModal').addEventListener('click',e=>{
 // ── APPEARANCE MODAL ─────────────────────────────────────
 let appSettings = {
     scanlines: true, starfield: true, sounds: true, snake: true, nanoZones: true,
-    fontFamily: "'SF Mono', 'Menlo', monospace", fontSize: 15
+    fontFamily: "'SF Mono', 'Menlo', monospace", fontSize: 15,
+    tileMode: 'grid'
 };
 
 document.getElementById('appearanceBtn').addEventListener('click', () => {
@@ -986,7 +1043,8 @@ async function saveAppSettings() {
         starfield: appSettings.starfield,
         sounds: appSettings.sounds,
         snake: appSettings.snake,
-        nanoZones: appSettings.nanoZones
+        nanoZones: appSettings.nanoZones,
+        tileMode: appSettings.tileMode
     };
     await window.scc.writeConfig(cfg);
 }
@@ -1662,6 +1720,7 @@ window.scc.onAppClosing(() => {
         if (a.sounds === false)     { appSettings.sounds = false; soundEnabled = false; }
         if (a.snake === false)      { appSettings.snake = false; document.body.classList.add('no-snake'); }
         if (a.nanoZones === false)   { appSettings.nanoZones = false; document.querySelectorAll('.nano-side').forEach(el => el.style.display = 'none'); }
+        if (a.tileMode) appSettings.tileMode = a.tileMode;
         applyAppFont();
     }
 

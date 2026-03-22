@@ -416,6 +416,19 @@
         .tool-btn:hover { background: var(--accent-faint); color: var(--accent); border-color: var(--accent-dim); }
         .tool-btn.primary { border-color: var(--accent-dim); color: var(--accent); }
 
+        .tile-mode-menu {
+            position: fixed; z-index: 9999;
+            background: var(--panel-bg); border: 1px solid var(--panel-border);
+            border-radius: 6px; overflow: hidden; min-width: 120px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        .tile-opt {
+            display: block; width: 100%; padding: 8px 14px; background: none;
+            border: none; color: var(--text); cursor: pointer; text-align: left; font-size: 12px;
+        }
+        .tile-opt:hover { background: var(--accent-dim); }
+        .tile-opt.active { color: var(--accent); }
+
         /* ── DROPDOWN MENUS ── */
         .tool-dropdown { position: relative; }
         .tool-dropdown-menu {
@@ -713,7 +726,7 @@
                 <div id="workspaceTabs"></div>
                 <div class="cmd-tools">
                     <button class="tool-btn primary" id="addBtn">+ ADD</button>
-                    <button class="tool-btn" id="tileBtn">TILE</button>
+                    <button class="tool-btn" id="tileBtn">TILE</button><button id="tileModeBtn" class="tool-btn" style="padding:0 6px;font-size:9px" title="Tile mode">▾</button>
                     <button class="tool-btn" id="togglePanelsBtn" title="Toggle side panels">◧</button>
                     <button class="tool-btn" id="bgCycleBtn" title="Cycle background">BG</button>
                     <button class="tool-btn" id="quickThemeBtn" title="Cycle theme">THEME</button>
@@ -1035,6 +1048,12 @@
       <button id="wsDeleteConfirm" class="modal-btn-danger">Remove</button>
     </div>
   </div>
+</div>
+
+<div id="tileModeMenu" class="tile-mode-menu" style="display:none">
+  <button class="tile-opt" data-mode="grid">Grid</button>
+  <button class="tile-opt" data-mode="horizontal">Horizontal</button>
+  <button class="tile-opt" data-mode="vertical">Vertical</button>
 </div>
 
 <script type="module" src="./main.js"></script>
