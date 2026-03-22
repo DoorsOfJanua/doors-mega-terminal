@@ -825,7 +825,20 @@ document.getElementById('quickSfxBtn').addEventListener('click', async () => {
 });
 
 // ── KEYBOARD ──────────────────────────────────────────────
-let claudeShortcut = { ctrl: true, shift: true, key: 'C' };
+// ── SHORTCUTS ─────────────────────────────────────────────
+const DEFAULT_SHORTCUTS = {
+    cmdToggle:  { display: 'Toggle Command Center', key: 'Backquote', mod: '' },
+    claudeOpen: { display: 'Open Claude in panel',  key: 'C',         mod: 'Ctrl+Shift' },
+};
+let shortcuts = JSON.parse(JSON.stringify(DEFAULT_SHORTCUTS));
+
+function matchShortcut(e, s) {
+    if (!s) return false;
+    return e.ctrlKey  === s.mod.includes('Ctrl')  &&
+           e.shiftKey === s.mod.includes('Shift') &&
+           e.altKey   === s.mod.includes('Alt')   &&
+           e.code === s.key;
+}
 
 // ── SIDE PANEL TOGGLE ────────────────────────────────────
 let sidePanelsVisible = true;
@@ -865,20 +878,90 @@ document.getElementById('bgCycleBtn').addEventListener('click', () => {
     document.getElementById('bgCycleBtn').textContent = bg.label;
 });
 
-document.addEventListener('keydown',e=>{
-    if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
-    if(e.code==='Space'){ e.preventDefault(); toggleCmd(); }
-    if(e.key==='Escape') { wins.filter(w=>w.state==='fullscreen').forEach(w=>toggleFS(w)); closeAbout(); }
-
-    if (e.ctrlKey  === (claudeShortcut.ctrl  || false) &&
-        e.shiftKey === (claudeShortcut.shift || false) &&
-        e.altKey   === (claudeShortcut.alt   || false) &&
-        e.key === claudeShortcut.key) {
+document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.isContentEditable) return;
+    if (matchShortcut(e, shortcuts.cmdToggle))  { e.preventDefault(); toggleCmd(); return; }
+    if (matchShortcut(e, shortcuts.claudeOpen)) {
         e.preventDefault();
         const focused = wins.find(w => w.element && w.element.classList.contains('focused'));
         if (focused) window.scc.termInput(focused.id, 'claude\n');
+        return;
+    }
+    if (e.key === 'Escape') {
+        wins.filter(w => w.state === 'fullscreen').forEach(w => toggleFS(w));
+        if (typeof closeAbout === 'function') closeAbout();
+        if (typeof closeShortcutCenter === 'function') closeShortcutCenter();
     }
 });
+
+// ── SHORTCUT CENTER ───────────────────────────────────────
+function openShortcutCenter()  { renderShortcutList(); document.getElementById('shortcutCenter').style.display = 'flex'; }
+function closeShortcutCenter() {
+    const el = document.getElementById('shortcutCenter');
+    if (el) el.style.display = 'none';
+}
+
+function formatShortcutDisplay(s) {
+    const parts = [];
+    if (s.mod.includes('Ctrl'))  parts.push('Ctrl');
+    if (s.mod.includes('Shift')) parts.push('Shift');
+    if (s.mod.includes('Alt'))   parts.push('Alt');
+    const keyLabel = s.key === 'Backquote' ? '`' : s.key === 'Space' ? 'Space' : s.key;
+    parts.push(keyLabel);
+    return parts.join('+');
+}
+
+function renderShortcutList() {
+    const list = document.getElementById('shortcutList');
+    while (list.firstChild) list.removeChild(list.firstChild);
+    Object.entries(shortcuts).forEach(([id, s]) => {
+        const row = document.createElement('div'); row.className = 'shortcut-row';
+        const label = document.createElement('span'); label.className = 'shortcut-label';
+        label.textContent = s.display;
+        const keyBtn = document.createElement('button'); keyBtn.className = 'shortcut-key';
+        keyBtn.textContent = formatShortcutDisplay(s);
+        keyBtn.addEventListener('click', () => captureShortcut(id, keyBtn));
+        row.append(label, keyBtn);
+        list.appendChild(row);
+    });
+}
+
+function captureShortcut(id, btn) {
+    btn.textContent = 'Press key...';
+    btn.classList.add('capturing');
+    const onKey = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        if (e.key === 'Escape') {
+            btn.classList.remove('capturing');
+            renderShortcutList();
+            document.removeEventListener('keydown', onKey, true);
+            return;
+        }
+        const mod = [e.ctrlKey && 'Ctrl', e.shiftKey && 'Shift', e.altKey && 'Alt'].filter(Boolean).join('+');
+        shortcuts[id] = { ...shortcuts[id], key: e.code, mod };
+        document.removeEventListener('keydown', onKey, true);
+        btn.classList.remove('capturing');
+        saveShortcuts();
+        renderShortcutList();
+    };
+    document.addEventListener('keydown', onKey, true);
+}
+
+async function saveShortcuts() {
+    const cfg = await window.scc.readConfig();
+    cfg.shortcuts = shortcuts;
+    await window.scc.writeConfig(cfg);
+}
+
+document.getElementById('shortcutCenter').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('shortcutCenter')) closeShortcutCenter();
+});
+document.getElementById('shortcutClose').addEventListener('click', closeShortcutCenter);
+document.getElementById('shortcutReset').addEventListener('click', async () => {
+    shortcuts = JSON.parse(JSON.stringify(DEFAULT_SHORTCUTS));
+    await saveShortcuts(); renderShortcutList();
+});
+document.getElementById('shortcutsBtn').addEventListener('click', openShortcutCenter);
 
 // ── ADD PROJECT MODAL ─────────────────────────────────────
 document.getElementById('addBtn').addEventListener('click',()=>{
@@ -899,10 +982,7 @@ document.getElementById('mBrowse').addEventListener('click', async () => {
     }
 });
 
-// ── SHORTCUTS MODAL ───────────────────────────────────────
-document.getElementById('shortcutsBtn').addEventListener('click',()=>{
-    document.getElementById('shortcutsModal').classList.add('show');
-});
+// ── SHORTCUTS MODAL (static cheat sheet) ──────────────────
 document.getElementById('shortcutsClose').addEventListener('click',()=>{
     document.getElementById('shortcutsModal').classList.remove('show');
 });
@@ -1732,15 +1812,7 @@ window.scc.onAppClosing(() => {
     const soundBtnEl = document.getElementById('soundBtn');
     if (soundBtnEl) soundBtnEl.textContent = soundEnabled ? 'SFX ON' : 'SFX OFF';
 
-    if (cfg.claudeShortcut) {
-        const parts = cfg.claudeShortcut.split('+');
-        claudeShortcut = {
-            ctrl:  parts.includes('Ctrl'),
-            shift: parts.includes('Shift'),
-            alt:   parts.includes('Alt'),
-            key:   parts[parts.length - 1]
-        };
-    }
+    if (cfg.shortcuts) Object.assign(shortcuts, cfg.shortcuts);
 
     // Load workspaces from config (fall back to legacy projects format)
     if (cfg.workspaces && cfg.workspaces.length) {

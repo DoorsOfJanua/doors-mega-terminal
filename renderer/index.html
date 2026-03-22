@@ -692,6 +692,20 @@
         .color-opt:hover { background:var(--accent-dim); color:var(--text); }
         .color-opt.active { color:var(--accent); }
 
+        /* SHORTCUT CENTER */
+        .shortcut-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 0; border-bottom: 1px solid var(--panel-border);
+        }
+        .shortcut-label { font-size: 13px; color: var(--text); }
+        .shortcut-key {
+            font-family: var(--font-mono); font-size: 12px;
+            background: var(--accent-dim); color: var(--accent);
+            border: 1px solid var(--accent-dim); border-radius: 5px;
+            padding: 3px 10px; cursor: pointer; min-width: 80px; text-align: center;
+        }
+        .shortcut-key.capturing { background: var(--accent); color: var(--bg); }
+
         /* WORKSPACE DELETE MODAL */
         .modal-overlay {
             position: fixed; inset: 0; z-index: 99998;
@@ -716,7 +730,7 @@
 <div id="cmdBar">
     <div id="cmdHandle">
         <span class="ch-title">⚡ DMT COMMAND CENTER</span>
-        <span class="ch-hint">SPACE TO TOGGLE</span>
+        <span class="ch-hint">` TO TOGGLE</span>
         <span class="ch-arrow">▲</span>
     </div>
     <div id="cmdContent">
@@ -790,7 +804,7 @@
         <div class="s-cols">
             <div class="s-col">
                 <div class="s-section">DMT COMMAND CENTER</div>
-                <div class="s-row"><span class="s-key">SPACE</span><span class="s-desc">Toggle command center</span></div>
+                <div class="s-row"><span class="s-key">` (backtick)</span><span class="s-desc">Toggle command center</span></div>
                 <div class="s-row"><span class="s-key">DBL-CLICK header</span><span class="s-desc">Fullscreen window</span></div>
                 <div class="s-row"><span class="s-key">ESC</span><span class="s-desc">Exit fullscreen</span></div>
                 <div class="s-row"><span class="s-key">DRAG corner/edge</span><span class="s-desc">Resize window freely</span></div>
@@ -1020,21 +1034,21 @@
     </div>
     <div class="guide-section">
       <h3>COMMAND CENTER</h3>
-      <p><span class="g-key">SPACE</span> toggles the command center open/closed.<br>
+      <p><span class="g-key">` (backtick)</span> toggles the command center open/closed.<br>
       <span class="g-key">− +</span> next to SETTINGS changes command center text size.<br>
       <span class="g-key">SETTINGS</span> menu has appearance, colors, sound, shortcuts, and this guide.</p>
     </div>
     <div class="guide-section">
       <h3>KEYBOARD</h3>
       <p><span class="g-key">1-9</span> focus window by number<br>
-      <span class="g-key">SPACE</span> toggle command center<br>
+      <span class="g-key">` (backtick)</span> toggle command center<br>
       <span class="g-key">Ctrl+Shift+C</span> open Claude Code in focused window</p>
     </div>
   </div>
 </div>
 
 <div id="hint">
-    SPACE = toggle command center<br>
+    ` = toggle command center<br>
     DBL-CLICK header = fullscreen · ESC = back<br>
     DRAG corners to resize · CLICK model to switch
 </div>
@@ -1054,6 +1068,17 @@
   <button class="tile-opt" data-mode="grid">Grid</button>
   <button class="tile-opt" data-mode="horizontal">Horizontal</button>
   <button class="tile-opt" data-mode="vertical">Vertical</button>
+</div>
+
+<div id="shortcutCenter" class="modal-overlay" style="display:none">
+  <div class="modal-box" style="min-width:360px">
+    <div class="modal-title">Shortcut Center</div>
+    <div id="shortcutList" style="margin-bottom:16px"></div>
+    <div class="modal-btns">
+      <button id="shortcutReset" class="modal-btn-cancel">Reset Defaults</button>
+      <button id="shortcutClose" class="modal-btn-cancel">Done</button>
+    </div>
+  </div>
 </div>
 
 <script type="module" src="./main.js"></script>
