@@ -166,6 +166,32 @@
         /* Task Monitor dots for new states */
         .tm-dot.approval { background: #ffd60a; box-shadow: 0 0 4px #ffd60a; }
         .tm-dot.alert    { background: #ff453a; box-shadow: 0 0 4px #ff453a; }
+        .tm-dot.thinking { background: #4488ff; }
+        .tm-dot.writing  { background: #cc44ff; }
+
+        /* ── AGENT STATE: THINKING (slow blue pulse on header) ── */
+        [data-snake="thinking"] .panel-header {
+            box-shadow: 0 0 0 2px #4488ff, 0 0 12px rgba(68,136,255,.4);
+            animation: thinkPulse 2s ease-in-out infinite;
+        }
+        @keyframes thinkPulse {
+          0%, 100% { box-shadow: 0 0 0 2px #4488ff, 0 0 8px rgba(68,136,255,.3); }
+          50%       { box-shadow: 0 0 0 2px #88aaff, 0 0 22px rgba(68,136,255,.7); }
+        }
+
+        /* ── AGENT STATE: WRITING (fast purple pulse on header) ── */
+        [data-snake="writing"] .panel-header {
+            box-shadow: 0 0 0 2px #cc44ff, 0 0 10px rgba(204,68,255,.4);
+            animation: writePulse .8s ease-in-out infinite;
+        }
+        @keyframes writePulse {
+          0%, 100% { box-shadow: 0 0 0 2px #cc44ff, 0 0 6px rgba(204,68,255,.3); }
+          50%       { box-shadow: 0 0 0 2px #ee88ff, 0 0 18px rgba(204,68,255,.8); }
+        }
+
+        /* Disable animations when snake effects are off */
+        body.no-snake [data-snake="thinking"] .panel-header,
+        body.no-snake [data-snake="writing"]  .panel-header { animation: none; box-shadow: none; }
 
         /* Token budget bar in toolbar */
         .token-budget-wrap { display:flex; align-items:center; gap:4px; font-size:9px; color:var(--accent); opacity:0.7; padding:0 6px; }
