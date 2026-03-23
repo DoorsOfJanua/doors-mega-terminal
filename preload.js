@@ -34,5 +34,8 @@ contextBridge.exposeInMainWorld('scc', {
   onClaudeStop: (cb) => ipcRenderer.on('claude-stop', cb),
 
   // Git
-  gitBranch: (dirPath) => ipcRenderer.invoke('git-branch', dirPath),
+  gitBranch:         (dirPath)                   => ipcRenderer.invoke('git-branch', dirPath),
+  gitWorktreeCreate: (originalPath, worktreeKey) => ipcRenderer.invoke('git-worktree-create', { originalPath, worktreeKey }),
+  gitWorktreeRemove: (originalPath, worktreeKey) => ipcRenderer.invoke('git-worktree-remove', { originalPath, worktreeKey }),
+  gitDiff:           (dirPath)                   => ipcRenderer.invoke('git-diff', dirPath),
 });

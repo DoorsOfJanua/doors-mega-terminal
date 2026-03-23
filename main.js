@@ -127,3 +127,56 @@ ipcMain.handle('git-branch', async (_e, dirPath) => {
     );
   });
 });
+
+ipcMain.handle('git-worktree-create', async (_e, { originalPath, worktreeKey }) => {
+  if (!originalPath || typeof originalPath !== 'string') return { ok: false };
+  const { execFile } = require('child_process');
+  const _fs = require('fs');
+  const worktreePath = path.join(originalPath, '.scc-worktrees', worktreeKey);
+
+  // Auto-add .scc-worktrees to .gitignore if not already present
+  try {
+    const giPath = path.join(originalPath, '.gitignore');
+    const existing = _fs.existsSync(giPath) ? _fs.readFileSync(giPath, 'utf8') : '';
+    if (!existing.includes('.scc-worktrees')) {
+      _fs.appendFileSync(giPath, '\n# DMT isolated worktrees\n.scc-worktrees\n');
+    }
+  } catch (_) {}
+
+  return new Promise(resolve => {
+    execFile('git', ['-C', originalPath, 'worktree', 'add', '--detach', worktreePath],
+      { timeout: 10000 },
+      (err) => {
+        if (err) resolve({ ok: false, error: err.message });
+        else resolve({ ok: true, path: worktreePath });
+      }
+    );
+  });
+});
+
+ipcMain.handle('git-worktree-remove', async (_e, { originalPath, worktreeKey }) => {
+  if (!originalPath || typeof originalPath !== 'string') return { ok: false };
+  const { execFile } = require('child_process');
+  const worktreePath = path.join(originalPath, '.scc-worktrees', worktreeKey);
+  return new Promise(resolve => {
+    execFile('git', ['-C', originalPath, 'worktree', 'remove', '--force', worktreePath],
+      { timeout: 5000 },
+      (err) => resolve({ ok: !err })
+    );
+  });
+});
+
+ipcMain.handle('git-diff', async (_e, dirPath) => {
+  if (!dirPath || typeof dirPath !== 'string') return { stat: '', diff: '' };
+  const { execFile } = require('child_process');
+  const run = (args) => new Promise(resolve =>
+    execFile('git', ['-C', dirPath, ...args], { timeout: 5000 },
+      (_err, stdout) => resolve((stdout || '').trim())
+    )
+  );
+  const [stat, diff] = await Promise.all([
+    run(['diff', '--stat']),
+    run(['diff'])
+  ]);
+  return { stat, diff };
+});
