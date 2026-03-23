@@ -1,6 +1,6 @@
 {
   "name": "doors-mega-terminal",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "DMT — Doors Mega Terminal. A floating multi-window terminal manager for builders.",
   "main": "main.js",
   "author": "Janua",
