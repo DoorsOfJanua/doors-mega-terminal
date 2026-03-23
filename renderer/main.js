@@ -938,6 +938,11 @@ function refreshLedger() {
         branchEl.id = 'lr-branch-' + (win ? win.id : proj.title.replace(/\W/g,'_'));
         setTxt(branchEl, win ? (winBranch.get(win.id) || '') : '');
 
+        const wtEl = document.createElement('div');
+        wtEl.className = 'lr-wt';
+        wtEl.title = win && win._worktreeKey ? 'Running in isolated worktree' : '';
+        setTxt(wtEl, win && win._worktreeKey ? '⑂' : '');
+
         // Model picker
         const mwrap=document.createElement('div'); mwrap.className='lr-model-wrap';
         const mbtn=document.createElement('button');
@@ -989,7 +994,7 @@ function refreshLedger() {
             actions.appendChild(openBtn);
         }
 
-        row.append(status, name, branchEl, costEl, msg, mwrap, actions);
+        row.append(status, name, branchEl, wtEl, costEl, msg, mwrap, actions);
         row.addEventListener('click',()=>{
             if(win){ if(win.state==='minimized') toggleMin(win); focus(win); }
             else openProjectWindow(proj);
