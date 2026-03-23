@@ -130,6 +130,7 @@ ipcMain.handle('git-branch', async (_e, dirPath) => {
 
 ipcMain.handle('git-worktree-create', async (_e, { originalPath, worktreeKey }) => {
   if (!originalPath || typeof originalPath !== 'string') return { ok: false };
+  if (!worktreeKey  || typeof worktreeKey  !== 'string') return { ok: false };
   const { execFile } = require('child_process');
   const _fs = require('fs');
   const worktreePath = path.join(originalPath, '.scc-worktrees', worktreeKey);
@@ -156,6 +157,7 @@ ipcMain.handle('git-worktree-create', async (_e, { originalPath, worktreeKey }) 
 
 ipcMain.handle('git-worktree-remove', async (_e, { originalPath, worktreeKey }) => {
   if (!originalPath || typeof originalPath !== 'string') return { ok: false };
+  if (!worktreeKey  || typeof worktreeKey  !== 'string') return { ok: false };
   const { execFile } = require('child_process');
   const worktreePath = path.join(originalPath, '.scc-worktrees', worktreeKey);
   return new Promise(resolve => {
