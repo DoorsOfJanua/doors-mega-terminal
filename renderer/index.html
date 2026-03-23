@@ -850,6 +850,34 @@
         .tm-name  { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .tm-ws    { font-size: 10px; color: var(--text-dim); }
         .tm-empty { padding: 16px; text-align: center; color: var(--text-faint); font-size: 12px; }
+
+        /* ── GIT DIFF PANEL ── */
+        .git-diff-panel {
+            position: fixed; right: 0; top: 0; bottom: 0; width: 420px;
+            background: #040c14; border-left: 1px solid var(--accent-dim);
+            display: flex; flex-direction: column; z-index: 9998;
+            font-family: 'SF Mono', 'Menlo', monospace;
+        }
+        .gdp-header {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 10px; border-bottom: 1px solid var(--accent-dim); flex-shrink: 0;
+        }
+        .gdp-title { font-size: 10px; letter-spacing: .12em; color: var(--accent); font-weight: 600; }
+        .gdp-path  { font-size: 9px; color: #556; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .gdp-btn   { background: none; border: none; color: #556; cursor: pointer; font-size: 13px; padding: 2px 4px; }
+        .gdp-btn:hover { color: var(--accent); }
+        .gdp-stat  {
+            font-size: 9px; color: #668; padding: 6px 10px;
+            border-bottom: 1px solid #111; flex-shrink: 0; white-space: pre; line-height: 1.5;
+        }
+        .gdp-content {
+            flex: 1; overflow-y: auto; margin: 0; padding: 8px 10px;
+            font-size: 11px; line-height: 1.5; color: #ccc; white-space: pre; overflow-x: auto;
+        }
+        .gdp-content .diff-add  { color: #00cc66; }
+        .gdp-content .diff-del  { color: #ff5555; }
+        .gdp-content .diff-hunk { color: #5588aa; }
+        .gdp-content .diff-file { color: var(--accent); font-weight: 600; }
     </style>
 </head>
 <body>
@@ -1224,6 +1252,18 @@
     <button id="taskMonitorClose" class="tm-close">&#x2715;</button>
   </div>
   <div id="taskMonitorList" class="tm-list"></div>
+</div>
+
+<!-- ── GIT DIFF PANEL ── -->
+<div id="gitDiffPanel" class="git-diff-panel" style="display:none;">
+    <div class="gdp-header">
+        <span class="gdp-title">GIT DIFF</span>
+        <span id="gitDiffPath" class="gdp-path"></span>
+        <button id="gitDiffRefresh" class="gdp-btn" title="Refresh">↺</button>
+        <button id="gitDiffClose" class="gdp-btn" title="Close (G)">✕</button>
+    </div>
+    <div id="gitDiffStat" class="gdp-stat"></div>
+    <pre id="gitDiffContent" class="gdp-content"></pre>
 </div>
 
 <script type="module" src="./main.js"></script>
