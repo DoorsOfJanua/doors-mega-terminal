@@ -9,6 +9,10 @@ const TOKEN_RE_A  = /Tokens?:\s*([\d,]+)\s*input,\s*([\d,]+)\s*output/i;
 const TOKEN_RE_B  = /Usage:\s*input=(\d+)\s+output=(\d+)/i;
 const APPROVAL_RE = /(\[y\/n\]|\[Y\/n\]|\(y\/n\)|Press Enter|Continue\?|\?\s*$)/im;
 const ansiRe = () => /\x1B\[[0-9;]*[mGKHF]/g;
+// Claude Code tool invocation — "● Write(..." appears in Claude Code output
+const TOOL_RE     = /[●○◉]\s*(Write|Edit|Bash|Read|Glob|Grep|Create|Update|MultiEdit|NotebookEdit)/i;
+// Claude thinking — braille spinner chars shown during processing
+const THINKING_RE = /[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/;
 
 window.scc.onTermData(({ id, data }) => {
   const t = terminals.get(id);
@@ -19,10 +23,16 @@ window.scc.onTermData(({ id, data }) => {
   t.lastOutput = (t.lastOutput + data).slice(-500);
   const clean  = t.lastOutput.replace(ansiRe(), '');
 
-  if (t.onStateChange && PROMPT_RE.test(clean)) {
-    if (t.outputLen > 50) t.onStateChange(id, 'done');
-    t.lastOutput = '';
-    t.outputLen  = 0;
+  if (t.onStateChange) {
+    if (PROMPT_RE.test(clean)) {
+      if (t.outputLen > 50) t.onStateChange(id, 'done');
+      t.lastOutput = '';
+      t.outputLen  = 0;
+    } else if (TOOL_RE.test(clean)) {
+      t.onStateChange(id, 'writing');
+    } else if (THINKING_RE.test(clean)) {
+      t.onStateChange(id, 'thinking');
+    }
   }
 
   if (t.onTokenData) {
