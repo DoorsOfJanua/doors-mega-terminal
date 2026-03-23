@@ -13,7 +13,7 @@ Doors Mega Terminal — floating multi-window terminal manager for builders. Wor
 - **config.js**: Config read/write with defaults
 - **pty-manager.js**: node-pty process management
 
-## Current Version: v0.2.0
+## Current Version: v0.2.1
 
 ## Shipped Features (complete)
 
@@ -36,12 +36,37 @@ Doors Mega Terminal — floating multi-window terminal manager for builders. Wor
 6. **Auto-Detect Needs-Input**: yellow pulsing border + distinct sound on `[y/n]`/`?`/`Press Enter`/`Continue?`, resets on keyboard input
 7. **Ask Claude button**: grabs last 50 clean terminal lines, sends to existing Claude panel in same dir (or opens new one)
 
+### v0.2.1 — Bug Fix Patch (2026-03-22)
+Codex audit identified 3 architectural bugs; all fixed same session. Patch maintains 39/39 test pass rate.
+1. **Ask Claude targeting hardened**: now checks window title for "claude" substring, prevents injection into arbitrary terminals
+2. **Config write race eliminated**: centralized `patchConfig()` queue serializes all writes (token tracker, session saver, settings, workspace handler), last-write-wins race fixed
+3. **Session restore resilient**: uses `wCfg.path` as primary key, title as fallback. Works after window renames and duplicate titles
+
 ## NEXT TASKS
-- [ ] Build v0.2.0 DMG (`npm run dist`)
-- [ ] Write README for GitHub
-- [ ] Attach DMG to GitHub Releases
-- [ ] Add to Doors of Janua Apps page
-- [ ] Consider renaming local folder `spaceship-command-center` → `doors-mega-terminal` (needs path migration)
+
+### Completed This Session
+- [x] Multi-instance architecture (Option A) — DONE
+- [x] Workspace naming UI (modal input with validation) — DONE
+- [x] Right-click handler (event propagation fixed) — DONE
+- [x] Dual-screen testing — DONE
+- [x] All 39 tests passing post-implementation
+
+### Immediate Next Steps (Release Path)
+- [x] Build v0.2.0 DMG (`npm run dist`) — DONE
+- [x] v0.2.1 bug fixes (Ask Claude targeting, config writes, session restore) — DONE, 39/39 tests, code pushed to main
+- [ ] Write README for GitHub (setup, features, shortcuts, build instructions) — Sonnet
+- [ ] Attach v0.2.1 DMG to GitHub Releases (mark as latest) — Haiku
+- [ ] Add to Doors of Janua Apps page — Haiku
+- [ ] Plan v0.3.0 roadmap (next features after bug fixes) — Opus
+- [ ] Apple notarization (deferred, not blocking) — decide in v0.3 planning
+
+### Knowledge Architecture (Research Weaving System)
+- [ ] Run weaver textual pass on vault — identify textual links between research notes and project mentions — Sonnet, 15-30m
+- [ ] Design semantic pass heuristics for weaver skill — map research topics to projects (memory architecture -> Luna/Sakshi, etc.) — Opus, 1h
+- [ ] Implement "Related:" tagging protocol in research capture — manual connection layer, required step in capture workflow — Sonnet, 30m
+- [ ] Extend /tasks skill to surface relevant research findings — integrate research discovery into task display — Sonnet, 2h
+
+**Context**: Session identified that research in vault doesn't automatically connect to active tasks. Solution is two-pass linking: textual (weaver, automated) + semantic (manual tagging + future heuristics). Harvest: `/Users/janua/.claude/projects/-Users-janua/memory/harvests/2026-03-22-1936-knowledge-weaving.md`
 
 ## Deferred (explicitly acknowledged, don't build yet)
 - Split pane (equivalent effort to all other features combined)
