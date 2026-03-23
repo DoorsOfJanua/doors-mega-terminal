@@ -492,6 +492,8 @@ function mkWin(cfg) {
     const model  = cfg.model  || 'Sonnet';
     const log    = cfg.logFile|| '';
     const path   = cfg.path   || '';
+    const _originalPath = cfg._originalPath || null;
+    const _worktreeKey  = cfg._worktreeKey  || null;
     const x      = cfg.x      ?? scatter();
     const y      = cfg.y      ?? scatter(true);
     const width  = cfg.width  || SIZES.M.w;
@@ -678,6 +680,7 @@ function mkWin(cfg) {
         id, title, model, logFile:log, path,
         x, y, width, height, state, zIndex:zi,
         element:el, message:'', lastLines:cfg.lastLines||[], _sig:'',
+        _originalPath, _worktreeKey,
     };
     wins.push(data);
     fetchBranch(data);
@@ -799,9 +802,16 @@ function resizeWin(data, size) {
 }
 
 function rmWin(id) {
-    const idx=wins.findIndex(w=>w.id===id); if(idx<0) return;
+    const idx = wins.findIndex(w => w.id === id);
+    if (idx < 0) return;
+    const win = wins[idx];
+    if (win._originalPath && win._worktreeKey) {
+        // fire-and-forget — don't block UI on cleanup
+        window.scc.gitWorktreeRemove(win._originalPath, win._worktreeKey).catch(() => {});
+    }
     destroyTerminal(id);
-    wins[idx].element.remove(); wins.splice(idx,1);
+    wins[idx].element.remove();
+    wins.splice(idx, 1);
     refreshLedger();
 }
 
@@ -988,12 +998,32 @@ function refreshLedger() {
     });
 }
 
-function openProjectWindow(proj) {
-    const existing=wins.find(w=>w.title===proj.title);
-    if(existing){ focus(existing); return; }
-    const w=mkWin({
-        title:proj.title, model:proj.model,
-        logFile:proj.logFile, path:proj.path,
+async function openProjectWindow(proj) {
+    // Without worktree: enforce single window per project (existing behavior)
+    if (!proj.useWorktree) {
+        const existing = wins.find(w => w.title === proj.title);
+        if (existing) { focus(existing); return; }
+    }
+
+    let termPath = proj.path;
+    let _originalPath = null;
+    let _worktreeKey  = null;
+
+    if (proj.useWorktree && proj.path) {
+        const key = 'scc-' + Date.now();
+        const result = await window.scc.gitWorktreeCreate(proj.path, key);
+        if (result.ok) {
+            termPath      = result.path;
+            _originalPath = proj.path;
+            _worktreeKey  = key;
+        }
+        // on failure, falls through to open normally at original path
+    }
+
+    const w = mkWin({
+        title: proj.title, model: proj.model,
+        logFile: proj.logFile, path: termPath,
+        _originalPath, _worktreeKey,
     });
     focus(w);
 }
