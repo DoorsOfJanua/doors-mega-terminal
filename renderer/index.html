@@ -601,6 +601,9 @@
         .m-btn.ok:hover { background: var(--accent-dim); }
         .m-btn.cancel { background: transparent; border: 1px solid rgba(255,0,0,0.2); color: rgba(255,70,70,0.6); }
         .m-btn.cancel:hover { background: rgba(255,0,0,0.07); }
+        .m-checkbox-label { display:flex; align-items:center; gap:8px; font-size:10px; letter-spacing:.08em; color:var(--accent); cursor:pointer; }
+        .m-checkbox-label input[type="checkbox"] { width:14px; height:14px; accent-color:var(--accent); cursor:pointer; }
+        .m-hint { font-size:9px; color:#556; margin-top:4px; letter-spacing:.04em; }
 
         /* APPEARANCE MODAL */
         #appearanceModal {
@@ -881,6 +884,13 @@
                 <input class="m-input" id="mPath" placeholder="~/projects/my-project" autocomplete="off" style="flex:1;">
                 <button class="m-btn ok" id="mBrowse" style="padding:7px 12px;font-size:8px;white-space:nowrap;">BROWSE</button>
             </div>
+        </div>
+        <div class="m-field" id="mWorktreeField">
+            <label class="m-checkbox-label">
+                <input type="checkbox" id="mWorktree">
+                CREATE ISOLATED GIT WORKTREE
+            </label>
+            <div class="m-hint">Each window gets its own copy of the repo. Requires git.</div>
         </div>
         <div class="m-btns">
             <button class="m-btn cancel" id="mCancel">CANCEL</button>

@@ -467,7 +467,7 @@ function saveWorkspaces() {
     const snapshot = workspaces.map(ws => ({
         name: ws.name,
         _accent: ws._accent || null,
-        projects: ws.projects.map(p => ({ title: p.title, path: p.path || '', model: p.model }))
+        projects: ws.projects.map(p => ({ title: p.title, path: p.path || '', model: p.model, useWorktree: p.useWorktree || false }))
     }));
     return patchConfig(cfg => ({ ...cfg, workspaces: snapshot }));
 }
@@ -1352,10 +1352,15 @@ document.getElementById('mBrowse').addEventListener('click', async () => {
     const folder = await window.scc.pickFolder();
     if (folder) {
         document.getElementById('mPath').value = folder;
+        document.getElementById('mWorktree').checked = true;
         if (!document.getElementById('mName').value.trim()) {
             document.getElementById('mName').value = folder.split('/').pop();
         }
     }
+});
+document.getElementById('mPath').addEventListener('input', () => {
+    if (!document.getElementById('mPath').value.trim())
+        document.getElementById('mWorktree').checked = false;
 });
 
 // ── SHORTCUTS MODAL (static cheat sheet) ──────────────────
@@ -1617,16 +1622,19 @@ document.getElementById('colorBtn').addEventListener('click', (e) => {
     document.getElementById('colorSubmenu').classList.toggle('open');
 });
 
-async function confirmModal(){
-    const name=document.getElementById('mName').value.trim();
-    if(!name){ document.getElementById('mName').focus(); return; }
-    const proj={
-        title:name, model:document.getElementById('mModel').value,
-        logFile:document.getElementById('mLog').value.trim(),
-        path:document.getElementById('mPath').value.trim(),
+async function confirmModal() {
+    const name = document.getElementById('mName').value.trim();
+    if (!name) { document.getElementById('mName').focus(); return; }
+    const projPath = document.getElementById('mPath').value.trim();
+    const proj = {
+        title:      name,
+        model:      document.getElementById('mModel').value,
+        logFile:    document.getElementById('mLog').value.trim(),
+        path:       projPath,
+        useWorktree: document.getElementById('mWorktree').checked && !!projPath,
     };
     projects.push(proj);
-    openProjectWindow(proj);
+    await openProjectWindow(proj);
     closeModal();
     saveWorkspaces();
 }
@@ -1634,6 +1642,7 @@ async function confirmModal(){
 function closeModal(){
     document.getElementById('modal').classList.remove('show');
     ['mName','mLog','mPath'].forEach(id=>{ document.getElementById(id).value=''; });
+    document.getElementById('mWorktree').checked = false;
 }
 
 // Apply nano background image from CSS variable
@@ -2129,7 +2138,7 @@ function saveSession() {
         return {
             name: ws.name,
             _accent: ws._accent || null,
-            projects: ws.projects.map(p => ({ title: p.title, path: p.path || '', model: p.model })),
+            projects: ws.projects.map(p => ({ title: p.title, path: p.path || '', model: p.model, useWorktree: p.useWorktree || false })),
             openWindows: wsWins.map(w => ({
                 title: w.title, model: w.model, path: w.path || '',
                 x: w.x, y: w.y, width: w.width, height: w.height,
