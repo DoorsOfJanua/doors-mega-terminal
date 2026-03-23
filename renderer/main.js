@@ -1271,7 +1271,7 @@ document.getElementById('bgCycleBtn').addEventListener('click', () => {
 });
 
 document.addEventListener('keydown', e => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.isContentEditable) return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT' || e.target.isContentEditable) return;
     if (matchShortcut(e, shortcuts.cmdToggle))  { e.preventDefault(); toggleCmd(); return; }
     if (matchShortcut(e, shortcuts.claudeOpen)) {
         e.preventDefault();
