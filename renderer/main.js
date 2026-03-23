@@ -18,6 +18,19 @@ function patchConfig(patchFn) {
 const winTokens = new Map(); // id → { inputTokens, outputTokens, cost }
 const winBranch = new Map(); // id → branch string (for Task 7)
 
+let gitDiffPanelOpen = false;
+
+function renderDiffHtml(text) {
+    return text.split('\n').map(line => {
+        const esc = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        if (line.startsWith('diff --git'))               return `<span class="diff-file">${esc}</span>`;
+        if (line.startsWith('+') && !line.startsWith('+++')) return `<span class="diff-add">${esc}</span>`;
+        if (line.startsWith('-') && !line.startsWith('---')) return `<span class="diff-del">${esc}</span>`;
+        if (line.startsWith('@@'))                       return `<span class="diff-hunk">${esc}</span>`;
+        return esc;
+    }).join('\n');
+}
+
 const COST_RATES = {
   Haiku:  { in: 0.25,  out: 1.25  },
   Sonnet: { in: 3.0,   out: 15.0  },
@@ -485,6 +498,43 @@ async function fetchBranch(win) {
     if (el) setTxt(el, trimmed);
 }
 
+async function openGitDiffPanel() {
+    gitDiffPanelOpen = true;
+    const panel = document.getElementById('gitDiffPanel');
+    if (panel) panel.style.display = 'flex';
+    await refreshGitDiff();
+}
+
+function closeGitDiffPanel() {
+    gitDiffPanelOpen = false;
+    const panel = document.getElementById('gitDiffPanel');
+    if (panel) panel.style.display = 'none';
+}
+
+async function refreshGitDiff() {
+    const focused = wins.find(w => w.element && w.element.classList.contains('focused'))
+                 || wins[wins.length - 1];
+    if (!focused || !focused.path) {
+        document.getElementById('gitDiffStat').textContent = 'No active window.';
+        document.getElementById('gitDiffContent').textContent = '';
+        return;
+    }
+    document.getElementById('gitDiffPath').textContent =
+        focused.path.split('/').pop() || focused.path;
+    document.getElementById('gitDiffStat').textContent = 'Loading…';
+    document.getElementById('gitDiffContent').textContent = '';
+
+    const { stat, diff } = await window.scc.gitDiff(focused.path);
+    document.getElementById('gitDiffStat').textContent = stat || 'No staged/unstaged changes.';
+    const contentEl = document.getElementById('gitDiffContent');
+    if (diff) {
+        // renderDiffHtml output is fully HTML-escaped; only <span> tags with fixed class names are added
+        contentEl.innerHTML = renderDiffHtml(diff); // safe: all user content escaped in renderDiffHtml
+    } else {
+        contentEl.innerHTML = '<span style=color:#445>Working tree is clean.</span>'; // static literal
+    }
+}
+
 // ── CREATE WINDOW ────────────────────────────────────────
 function mkWin(cfg) {
     const id     = cfg.id     || ('w'+(idSeq++));
@@ -761,6 +811,7 @@ function focus(data) {
     data.zIndex = ++zTop; data.element.style.zIndex = data.zIndex;
     refreshLedger();
     fetchBranch(data);
+    if (gitDiffPanelOpen) refreshGitDiff();
 }
 
 function toggleMin(data) {
@@ -1232,6 +1283,12 @@ document.addEventListener('keydown', e => {
         wins.filter(w => w.state === 'fullscreen').forEach(w => toggleFS(w));
         if (typeof closeAbout === 'function') closeAbout();
         if (typeof closeShortcutCenter === 'function') closeShortcutCenter();
+    }
+    if (e.key === 'g' || e.key === 'G') {
+        e.preventDefault();
+        if (gitDiffPanelOpen) closeGitDiffPanel();
+        else openGitDiffPanel();
+        return;
     }
 });
 
@@ -2497,6 +2554,10 @@ window.scc.onAppClosing(async () => {
     document.getElementById('taskMonitorBtn').addEventListener('click', () => {
         taskMonitorOpen ? closeTaskMonitor() : openTaskMonitor();
     });
+
+    // ── GIT DIFF PANEL ───────────────────────────────────────
+    document.getElementById('gitDiffClose')?.addEventListener('click', closeGitDiffPanel);
+    document.getElementById('gitDiffRefresh')?.addEventListener('click', refreshGitDiff);
 
     document.getElementById('restoreBtn')?.addEventListener('click', async () => {
         const latestCfg = await window.scc.readConfig();
