@@ -890,8 +890,16 @@ function refreshLedger() {
 
         // Status
         const status=document.createElement('div');
-        status.className='lr-status ' + (win ? 'online' : 'offline');
-        setTxt(status, win ? 'ONLINE' : 'OFFLINE');
+        const agentState = win ? (win.snakeState || 'running') : null;
+        const stateLabel = !win           ? 'OFFLINE'
+                         : agentState === 'thinking' ? 'THINKING'
+                         : agentState === 'writing'  ? 'WRITING'
+                         : agentState === 'approval' ? 'WAITING'
+                         : agentState === 'alert'    ? 'ALERT'
+                         : agentState === 'done'     ? 'DONE'
+                         : 'RUNNING';
+        status.className = 'lr-status ' + (win ? ('online ' + (agentState || 'running')) : 'offline');
+        setTxt(status, stateLabel);
 
         // Name — double-click to rename
         const name=document.createElement('div'); name.className='lr-name'; setTxt(name,proj.title);
