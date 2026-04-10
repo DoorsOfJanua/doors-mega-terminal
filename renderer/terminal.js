@@ -71,7 +71,7 @@ window.scc.onTermData(({ id, data }) => {
   }
 });
 
-const DEFAULT_FONT_FAMILY = '"Arial", "Helvetica Neue", Helvetica, sans-serif';
+const DEFAULT_FONT_FAMILY = '"SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
 const DEFAULT_FONT_SIZE = 15;
 
 let terminalFontFamily = DEFAULT_FONT_FAMILY;

@@ -23,14 +23,14 @@
             --glow:         0 0 18px rgba(0,255,255,0.22);
             --snake-color:  #00ffff;
             --snake-glow:   rgba(0,255,255,0.6);
-            --font-ui:      Arial, Helvetica, sans-serif;
-            --font-mono:    Arial, Helvetica, sans-serif;
-            --font-terminal: Arial, Helvetica, sans-serif;
+            --font-ui:      'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            --font-mono:    'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            --font-terminal: 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
         }
 
         /* ── CLASSIC ── real terminal look, auto day/night, no effects */
         body.theme-classic {
-            --font-ui:      Arial, Helvetica, sans-serif;
+            --font-ui:      'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
             --accent:       #007aff;
             --accent-glow:  rgba(0,122,255,0.4);
             --accent-dim:   rgba(0,122,255,0.15);
@@ -879,19 +879,19 @@
         .gdp-content .diff-hunk { color: #5588aa; }
         .gdp-content .diff-file { color: var(--accent); font-weight: 600; }
 
-        /* === READABILITY PASS: Arial UI + larger tap targets === */
+        /* === READABILITY PASS: native terminal fonts + larger tap targets === */
         :root {
-            --font-ui: Arial, Helvetica, sans-serif;
-            --font-mono: Arial, Helvetica, sans-serif;
-            --font-terminal: Arial, Helvetica, sans-serif;
+            --font-ui: 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            --font-mono: 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            --font-terminal: 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
         }
 
         body,
         body.theme-classic,
         body.theme-hyperspace {
-            --font-ui: Arial, Helvetica, sans-serif;
-            --font-mono: Arial, Helvetica, sans-serif;
-            --font-terminal: Arial, Helvetica, sans-serif;
+            --font-ui: 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            --font-mono: 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            --font-terminal: 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
             color: var(--text);
         }
 
@@ -1551,9 +1551,9 @@
         <div class="app-row">
             <span class="app-label">Terminal font</span>
             <select class="app-select" id="appFontFamily">
-                <option value="Arial, Helvetica, sans-serif" selected>Arial</option>
-                <option value="'SF Mono', 'Menlo', monospace">SF Mono</option>
+                <option value="'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace" selected>SF Mono</option>
                 <option value="'Menlo', monospace">Menlo</option>
+                <option value="'Monaco', monospace">Monaco</option>
                 <option value="'Courier New', monospace">Courier New</option>
                 <option value="'Fira Code', monospace">Fira Code</option>
                 <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
@@ -1575,7 +1575,7 @@
                 <option value="20">20</option>
             </select>
         </div>
-        <div class="app-preview" id="fontPreview" style="font-family:Arial, Helvetica, sans-serif; font-size:15px; color:var(--text); background:var(--panel-bg);">
+        <div class="app-preview" id="fontPreview" style="font-family:'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size:15px; color:var(--text); background:var(--panel-bg);">
             hello world ~ ssh dev@server
         </div>
 
