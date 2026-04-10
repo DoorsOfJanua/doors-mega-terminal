@@ -1,4 +1,4 @@
-import { initTerminal, destroyTerminal, resizeTerminalFont, refreshAllTermThemes, sendTerminalInput, setKeywordRules, getLastLines } from './terminal.js';
+import { initTerminal, destroyTerminal, resizeTerminalFont, refreshAllTermThemes, refreshAllTermFonts, sendTerminalInput, setKeywordRules, getLastLines } from './terminal.js';
 
 // ── SOUND ─────────────────────────────────────────────────
 const DONE_SOUNDS = ['done-boing.wav', 'done-notification.wav', 'done-coin.wav'];
@@ -258,9 +258,11 @@ document.getElementById('settingsMenuBtn').addEventListener('click', (e) => {
 });
 
 // ── CONFIG ───────────────────────────────────────────────
-const SIZES = { S:{w:260,h:170}, M:{w:420,h:280}, L:{w:640,h:440} };
+const SIZES = { S:{w:360,h:220}, M:{w:520,h:340}, L:{w:720,h:480} };
 
 const MODELS = ['Haiku','Sonnet','Opus'];
+const READABLE_FONT_FAMILY = 'Arial, Helvetica, sans-serif';
+const LEGACY_DEFAULT_FONT_FAMILY = "'SF Mono', 'Menlo', monospace";
 
 // ── WORKSPACES ──────────────────────────────────────────
 let workspaces  = [{ name: 'ALL', projects: [] }];
@@ -867,7 +869,7 @@ function rmWin(id) {
 }
 
 // ── DRAG / RESIZE ─────────────────────────────────────────
-const MIN_W=200, MIN_H=120;
+const MIN_W=360, MIN_H=220;
 
 document.addEventListener('mousemove', e => {
     if (!dragCtx) return;
@@ -1097,7 +1099,7 @@ function tileWindows(mode) {
     const visible = wins.filter(w => w.state !== 'minimized');
     const n = visible.length;
     if (!n) return;
-    const PAD = 12, W = innerWidth, H = innerHeight - 240;
+    const PAD = 12, W = innerWidth, H = innerHeight - 280;
 
     if (mode === 'horizontal') {
         const cw = Math.floor((W - PAD * (n + 1)) / n);
@@ -1371,7 +1373,7 @@ function openKeywordSettings() {
     box.style.minWidth = '280px';
 
     const h3 = document.createElement('h3');
-    h3.style.cssText = 'margin:0 0 12px;font-size:13px;letter-spacing:0.08em;';
+    h3.style.cssText = 'margin:0 0 12px;font-size:13px;letter-spacing:0;';
     h3.textContent = 'Keyword Alerts';
 
     const list = document.createElement('div'); list.id = 'kwRuleList';
@@ -1475,7 +1477,7 @@ document.getElementById('shortcutsModal').addEventListener('click',e=>{
 // ── APPEARANCE MODAL ─────────────────────────────────────
 let appSettings = {
     scanlines: true, starfield: true, sounds: true, snake: true, nanoZones: true,
-    fontFamily: "'SF Mono', 'Menlo', monospace", fontSize: 15,
+    fontFamily: READABLE_FONT_FAMILY, fontSize: 15,
     tileMode: 'grid'
 };
 
@@ -1549,8 +1551,13 @@ function updateFontPreview() {
 }
 
 function applyAppFont() {
-    // Update CSS custom property used by future terminals
-    document.documentElement.style.setProperty('--font-mono', appSettings.fontFamily);
+    const fontFamily = appSettings.fontFamily || READABLE_FONT_FAMILY;
+    // Keep CSS labels, previews, and live xterm instances in sync.
+    document.documentElement.style.setProperty('--font-mono', fontFamily);
+    document.documentElement.style.setProperty('--font-terminal', fontFamily);
+    document.body.style.setProperty('--font-mono', fontFamily);
+    document.body.style.setProperty('--font-terminal', fontFamily);
+    refreshAllTermFonts(fontFamily, appSettings.fontSize);
 }
 
 // Toggle handlers
@@ -1995,10 +2002,10 @@ function createNanoAnimation(zoneId, modeLabel, startMode) {
         ctx.save();
         ctx.shadowColor = '#0cf'; ctx.shadowBlur = 18;
         ctx.textAlign = 'center'; ctx.fillStyle = `rgba(0,230,255,${alpha})`;
-        ctx.font = 'bold 13px "Orbitron", monospace';
-        ctx.letterSpacing = '4px';
+        ctx.font = 'bold 13px Arial, Helvetica, sans-serif';
+        ctx.letterSpacing = '0px';
         ctx.fillText(MESSAGES[msgIdx], CX, CY-10);
-        ctx.font = 'bold 11px "Orbitron", monospace';
+        ctx.font = 'bold 11px Arial, Helvetica, sans-serif';
         ctx.fillStyle = `rgba(180,240,255,${alpha*0.8})`;
         ctx.fillText(MESSAGES[msgIdx+1], CX, CY+10);
         ctx.restore();
@@ -2023,9 +2030,9 @@ function createNanoAnimation(zoneId, modeLabel, startMode) {
             const str = String(Math.floor(c.val)).padStart(4,'0');
             ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.strokeStyle = 'rgba(0,255,100,0.3)'; ctx.lineWidth = 1;
             ctx.beginPath(); ctx.roundRect(c.x, c.y, 115, 36, 2); ctx.fill(); ctx.stroke();
-            ctx.fillStyle = 'rgba(0,200,80,0.45)'; ctx.font = '7px "Orbitron",monospace';
+            ctx.fillStyle = 'rgba(0,200,80,0.45)'; ctx.font = '7px Arial, Helvetica, sans-serif';
             ctx.textAlign = 'left'; ctx.fillText(c.label, c.x+4, c.y+10);
-            ctx.fillStyle = '#0f0'; ctx.font = 'bold 19px "Courier New",monospace';
+            ctx.fillStyle = '#0f0'; ctx.font = 'bold 19px Arial, Helvetica, sans-serif';
             ctx.shadowColor = '#0f0'; ctx.shadowBlur = 6; ctx.fillText(str, c.x+10, c.y+30); ctx.shadowBlur = 0;
         });
         toggles.forEach(tog => {
@@ -2043,7 +2050,7 @@ function createNanoAnimation(zoneId, modeLabel, startMode) {
             ctx.beginPath(); ctx.arc(bx+24, by+44, 4, 0, Math.PI*2);
             ctx.fillStyle = on ? '#0f0' : '#500'; ctx.shadowColor = on ? '#0f0' : '#f00';
             ctx.shadowBlur = on ? 7 : 3; ctx.fill(); ctx.shadowBlur = 0;
-            ctx.fillStyle = 'rgba(200,220,255,0.3)'; ctx.font = '5.5px "Orbitron",monospace';
+            ctx.fillStyle = 'rgba(200,220,255,0.3)'; ctx.font = '5.5px Arial, Helvetica, sans-serif';
             ctx.textAlign = 'center'; ctx.fillText(tog.label, bx+24, by+62);
         });
         // gauge
@@ -2060,7 +2067,7 @@ function createNanoAnimation(zoneId, modeLabel, startMode) {
         ctx.beginPath(); ctx.moveTo(gauge.x,gauge.y); ctx.lineTo(nx,ny);
         ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
         ctx.beginPath(); ctx.arc(gauge.x,gauge.y,4,0,Math.PI*2); ctx.fillStyle = '#ccc'; ctx.fill();
-        ctx.fillStyle = 'rgba(200,220,255,0.4)'; ctx.font = '7px "Orbitron",monospace';
+        ctx.fillStyle = 'rgba(200,220,255,0.4)'; ctx.font = '7px Arial, Helvetica, sans-serif';
         ctx.textAlign = 'center'; ctx.fillText(gauge.label, gauge.x, gauge.y+gauge.r+12);
         // waveform
         wave.phase += 0.08; wave.points.shift();
@@ -2074,7 +2081,7 @@ function createNanoAnimation(zoneId, modeLabel, startMode) {
         });
         ctx.strokeStyle = 'rgba(0,255,180,0.7)'; ctx.lineWidth = 1.2;
         ctx.shadowColor = '#0fb'; ctx.shadowBlur = 4; ctx.stroke(); ctx.shadowBlur = 0;
-        ctx.fillStyle = 'rgba(0,255,180,0.3)'; ctx.font = '6px "Orbitron",monospace';
+        ctx.fillStyle = 'rgba(0,255,180,0.3)'; ctx.font = '6px Arial, Helvetica, sans-serif';
         ctx.textAlign = 'left'; ctx.fillText('SIG', wx+2, wy-wh+8);
     }
 
@@ -2105,14 +2112,14 @@ function createNanoAnimation(zoneId, modeLabel, startMode) {
         // center text
         const a = 0.3 + 0.15*Math.sin(nebPhase*2);
         ctx.save(); ctx.textAlign = 'center';
-        ctx.fillStyle = `rgba(200,180,255,${a})`; ctx.font = 'bold 11px "Orbitron",monospace';
+        ctx.fillStyle = `rgba(200,180,255,${a})`; ctx.font = 'bold 11px Arial, Helvetica, sans-serif';
         ctx.shadowColor = '#a080ff'; ctx.shadowBlur = 12;
         ctx.fillText('COSMIC DRIFT', CX, CY); ctx.restore();
     }
 
     function drawMatrix() {
         ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.fillRect(0,0,W,H);
-        ctx.font = '11px "Courier New",monospace';
+        ctx.font = '11px Arial, Helvetica, sans-serif';
         ctx.shadowColor = '#0f0'; ctx.shadowBlur = 3;
         matCols.forEach(col => {
             col.y += col.speed;
@@ -2171,7 +2178,7 @@ function createNanoAnimation(zoneId, modeLabel, startMode) {
             ctx.fill(); ctx.shadowBlur = 0;
         });
         // label
-        ctx.fillStyle = 'rgba(0,200,80,0.35)'; ctx.font = '7px "Orbitron",monospace';
+        ctx.fillStyle = 'rgba(0,200,80,0.35)'; ctx.font = '7px Arial, Helvetica, sans-serif';
         ctx.textAlign = 'center'; ctx.fillText('SCAN ACTIVE', rcx, rcy+rr+14);
     }
 
@@ -2296,7 +2303,7 @@ window.scc.onAppClosing(async () => {
     // Restore appearance settings
     if (cfg.appearance) {
         const a = cfg.appearance;
-        if (a.fontFamily) appSettings.fontFamily = a.fontFamily;
+        if (a.fontFamily && a.fontFamily !== LEGACY_DEFAULT_FONT_FAMILY) appSettings.fontFamily = a.fontFamily;
         if (a.fontSize)   appSettings.fontSize = a.fontSize;
         if (a.scanlines === false)  { appSettings.scanlines = false;  document.body.classList.add('no-scanlines'); }
         if (a.starfield === false)  { appSettings.starfield = false;  const c = document.getElementById('stars'); if (c) c.style.display = 'none'; }
@@ -2304,8 +2311,8 @@ window.scc.onAppClosing(async () => {
         if (a.snake === false)      { appSettings.snake = false; document.body.classList.add('no-snake'); }
         if (a.nanoZones === false)   { appSettings.nanoZones = false; document.querySelectorAll('.nano-side').forEach(el => el.style.display = 'none'); }
         if (a.tileMode) appSettings.tileMode = a.tileMode;
-        applyAppFont();
     }
+    applyAppFont();
 
     // Legacy sound setting
     if (cfg.soundEnabled === false) {
@@ -2504,19 +2511,19 @@ window.scc.onAppClosing(async () => {
                 ctx.textAlign = 'center';
                 ctx.shadowColor = '#0ff'; ctx.shadowBlur = 30;
 
-                ctx.font = 'bold 28px "Orbitron", monospace';
+                ctx.font = 'bold 28px Arial, Helvetica, sans-serif';
                 ctx.fillStyle = `rgba(0,255,255,${tAlpha})`;
                 ctx.fillText('WARPSPEED UNLOCKED', 0, -40);
 
-                ctx.font = 'bold 16px "Orbitron", monospace';
+                ctx.font = 'bold 16px Arial, Helvetica, sans-serif';
                 ctx.fillStyle = `rgba(255,220,100,${tAlpha*0.9})`;
                 ctx.fillText('DEV MANIA INITIATED', 0, -5);
 
-                ctx.font = 'bold 13px "Orbitron", monospace';
+                ctx.font = 'bold 13px Arial, Helvetica, sans-serif';
                 ctx.fillStyle = `rgba(0,255,180,${tAlpha*0.85})`;
                 ctx.fillText('DRINK WATER \u2022 HAVE FOOD \u2022 10 PUSH-UPS!', 0, 30);
 
-                ctx.font = '10px "Orbitron", monospace';
+                ctx.font = '10px Arial, Helvetica, sans-serif';
                 ctx.fillStyle = `rgba(180,220,255,${tAlpha*0.5})`;
                 ctx.fillText('777 MINUTES OF PURE FOCUS', 0, 60);
 

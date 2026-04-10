@@ -71,7 +71,11 @@ window.scc.onTermData(({ id, data }) => {
   }
 });
 
+const DEFAULT_FONT_FAMILY = '"Arial", "Helvetica Neue", Helvetica, sans-serif';
 const DEFAULT_FONT_SIZE = 15;
+
+let terminalFontFamily = DEFAULT_FONT_FAMILY;
+let terminalFontSize = DEFAULT_FONT_SIZE;
 
 function getTermTheme() {
   if (document.body.classList.contains('theme-classic')) {
@@ -91,10 +95,23 @@ export function refreshAllTermThemes() {
   terminals.forEach(t => { t.term.options.theme = theme; });
 }
 
+export function refreshAllTermFonts(fontFamily = terminalFontFamily, fontSize = terminalFontSize) {
+  terminalFontFamily = fontFamily || DEFAULT_FONT_FAMILY;
+  const parsedSize = Number.parseInt(fontSize, 10);
+  terminalFontSize = Number.isFinite(parsedSize) ? parsedSize : DEFAULT_FONT_SIZE;
+
+  terminals.forEach(t => {
+    t.term.options.fontFamily = terminalFontFamily;
+    t.term.options.fontSize = terminalFontSize;
+    t.fit.fit();
+    window.scc.termResize(t.id, t.term.cols, t.term.rows);
+  });
+}
+
 export async function initTerminal(id, container, projectPath, onStateChange, onTokenData, onKeywordMatch) {
   const term = new Terminal({
-    fontFamily: '"SF Mono", "Menlo", "Courier New", monospace',
-    fontSize: DEFAULT_FONT_SIZE,
+    fontFamily: terminalFontFamily,
+    fontSize: terminalFontSize,
     theme: getTermTheme(),
     cursorBlink: true
   });
@@ -117,7 +134,7 @@ export async function initTerminal(id, container, projectPath, onStateChange, on
       if (entry.onStateChange) entry.onStateChange(id, 'running');
     }
   });
-  terminals.set(id, { term, fit, resizeObserver, onStateChange, onTokenData, onKeywordMatch, lastOutput: '', keywordRules: [] });
+  terminals.set(id, { id, term, fit, resizeObserver, onStateChange, onTokenData, onKeywordMatch, lastOutput: '', keywordRules: [] });
 }
 
 export function setKeywordRules(id, rules) {
