@@ -244,12 +244,44 @@ document.getElementById('soundBtn').addEventListener('click', async (e) => {
 });
 
 // ── DROPDOWN MENUS ──────────────────────────────────────
+function closeDropdowns() {
+    document.querySelectorAll('.tool-dropdown-menu').forEach(m => {
+        m.classList.remove('open', 'floating-menu');
+        m.style.left = '';
+        m.style.top = '';
+        m.style.right = '';
+        m.style.bottom = '';
+        m.style.position = '';
+    });
+    document.querySelectorAll('.color-submenu').forEach(m => m.classList.remove('open'));
+}
+
+function positionDropdown(menu, trigger) {
+    const rect = trigger.getBoundingClientRect();
+    const pad = 8;
+    const width = menu.offsetWidth;
+    const height = menu.offsetHeight;
+    const left = Math.max(pad, Math.min(window.innerWidth - width - pad, rect.right - width));
+    let top = rect.top - height - 6;
+    if (top < pad) top = Math.min(window.innerHeight - height - pad, rect.bottom + 6);
+
+    menu.style.position = 'fixed';
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+    menu.style.right = 'auto';
+    menu.style.bottom = 'auto';
+    menu.classList.add('floating-menu');
+}
+
 function toggleDropdown(menuId) {
     const menu = document.getElementById(menuId);
     const wasOpen = menu.classList.contains('open');
-    // Close all dropdowns first
-    document.querySelectorAll('.tool-dropdown-menu').forEach(m => m.classList.remove('open'));
-    if (!wasOpen) menu.classList.add('open');
+    closeDropdowns();
+    if (!wasOpen) {
+        document.body.appendChild(menu);
+        menu.classList.add('open');
+        requestAnimationFrame(() => positionDropdown(menu, document.getElementById('settingsMenuBtn')));
+    }
 }
 
 document.getElementById('settingsMenuBtn').addEventListener('click', (e) => {
@@ -913,7 +945,7 @@ document.addEventListener('mouseup', () => {
 // Close any open model picker or dropdown on outside click
 document.addEventListener('click', () => {
     document.querySelectorAll('.model-picker').forEach(p => p.classList.remove('show'));
-    document.querySelectorAll('.tool-dropdown-menu').forEach(m => m.classList.remove('open'));
+    closeDropdowns();
 });
 
 // ── LOG RENDERING ─────────────────────────────────────────
@@ -1433,7 +1465,7 @@ function saveKeywordAlerts() {
     const _kwBtn = document.createElement('button');
     _kwBtn.className = 'tdm-item'; _kwBtn.textContent = 'KEYWORD ALERTS';
     _kwBtn.addEventListener('click', () => {
-        document.getElementById('settingsMenu')?.classList.remove('show');
+        closeDropdowns();
         openKeywordSettings();
     });
     const _settingsMenu = document.getElementById('settingsMenu');
@@ -1717,7 +1749,7 @@ function buildColorSubmenu() {
             e.stopPropagation();
             applyAccentColor(c);
             sub.classList.remove('open');
-            document.querySelectorAll('.tool-dropdown-menu').forEach(m => m.classList.remove('open'));
+            closeDropdowns();
         });
         sub.appendChild(btn);
     });
